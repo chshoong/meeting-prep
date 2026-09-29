@@ -19,6 +19,11 @@ function fixture() {
     line({ type: 'user', cwd: proj, sessionId: 's1', timestamp: '2026-09-30T05:03:00.000Z', message: { content: [{ type: 'text', text: '<system-reminder>숨김</system-reminder>좋아' }] } }),
     line({ type: 'attachment', cwd: proj, sessionId: 's1', timestamp: '2026-09-30T05:04:00.000Z' }),
     '{ 깨진 줄',
+    'null',
+    line({ type: 'user', cwd: 123, sessionId: 's1', timestamp: '2026-09-30T05:10:00.000Z', message: { content: '숫자cwd' } }),
+    line({ type: 'user', cwd: {}, sessionId: 's1', timestamp: '2026-09-30T05:11:00.000Z', message: { content: '객체cwd' } }),
+    line({ type: 'user', cwd: proj, sessionId: 5, timestamp: '2026-09-30T05:12:00.000Z', message: { content: '숫자세션' } }),
+    line({ type: 'user', cwd: proj, sessionId: 's1', timestamp: 'garbage', message: { content: '깨진시각' } }),
     line({ type: 'user', cwd: other, sessionId: 's2', timestamp: '2026-09-30T06:00:00.000Z', message: { content: '다른 프로젝트' } }),
     line({ type: 'user', cwd: proj, sessionId: 's3', timestamp: '2026-09-01T00:00:00.000Z', message: { content: '오래된 대화' } }),
     line({ type: 'user', cwd: proj, sessionId: 'me', timestamp: '2026-09-30T07:00:00.000Z', message: { content: '지금 채팅' } }),
@@ -41,15 +46,24 @@ test('readTranscripts: 경로·기간·세션으로 거르고 도구 결과와 �
   assert.match(r.digest, /사용자: 베이스라인 다시 돌려줘/);
   assert.match(r.digest, /Claude: 결과: 72\.4/);
   assert.match(r.digest, /사용자: 좋아/);
-  assert.doesNotMatch(r.digest, /숨김|ignored|생각|다른 프로젝트|오래된 대화|지금 채팅/);
+  assert.doesNotMatch(r.digest, /숨김|숫자cwd|객체cwd|숫자세션|깨진시각|ignored|생각|다른 프로젝트|오래된 대화|지금 채팅/);
   assert.equal(r.truncated, false);
 });
 
 test('readTranscripts: 글자 수 제한', () => {
   const { root, proj } = fixture();
-  const r = readTranscripts({ root, since: '2026-09-20', paths: [proj], maxChars: 80 });
+  const limit = `### session s1 (${proj})\n`.length + 60;
+  const r = readTranscripts({ root, since: '2026-09-20', paths: [proj], maxChars: limit });
   assert.equal(r.truncated, true);
-  assert.ok(r.digest.length <= 80);
+  assert.ok(r.digest.length > 0);
+  assert.match(r.digest, /사용자:/);
+  assert.ok(r.digest.length <= limit);
+});
+
+test('readTranscripts: 문자열이 아닌 paths 항목은 무시', () => {
+  const { root, proj } = fixture();
+  const r = readTranscripts({ root, since: '2026-09-20', paths: [proj, 42, null, ''], excludeSession: 'me' });
+  assert.deepEqual(r.sessions, [{ sessionId: 's1', cwd: proj, count: 3 }]);
 });
 
 test('readTranscripts: 기록 폴더가 없으면 빈 결과', () => {

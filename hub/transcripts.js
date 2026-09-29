@@ -25,6 +25,7 @@ function listDirs(root) {
 
 export function readTranscripts({ root = transcriptsRoot(), since, paths = [], excludeSession = null, maxChars = 60000 } = {}) {
   const empty = { sessions: [], digest: '', truncated: false, skippedFiles: 0 };
+  paths = Array.isArray(paths) ? paths.filter(p => typeof p === 'string' && p) : [];
   const dirs = listDirs(root);
   if (!dirs || !paths.length) return empty;
   const sinceMs = since ? Date.parse(since) : 0;
@@ -49,7 +50,9 @@ export function readTranscripts({ root = transcriptsRoot(), since, paths = [], e
         let o;
         try { o = JSON.parse(line); } catch { continue; }
         if (!o || typeof o !== 'object') continue;
-        if ((o.type !== 'user' && o.type !== 'assistant') || !o.cwd || !o.sessionId || !o.timestamp) continue;
+        if (o.type !== 'user' && o.type !== 'assistant') continue;
+        if (typeof o.cwd !== 'string' || !o.cwd || typeof o.sessionId !== 'string' || !o.sessionId) continue;
+        if (typeof o.timestamp !== 'string' || Number.isNaN(Date.parse(o.timestamp))) continue;
         if (o.isMeta || o.isSidechain) continue;
         if (excludeSession && o.sessionId === excludeSession) continue;
         if (Date.parse(o.timestamp) < sinceMs) continue;
