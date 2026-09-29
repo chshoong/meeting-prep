@@ -8,7 +8,7 @@ argument-hint: "[주제] [세부 사항]"
 
 허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`, 렌더러는 `node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js"`이다. CLI 결과의 `ok`가 false면 `error`를 전하고 멈춘다. `deck.md` 작성 규칙은 `${CLAUDE_PLUGIN_ROOT}/skills/meeting/deck-format.md`에 있다. 4단계 전에 반드시 읽는다.
 
-시작할 때 `setup` 스킬의 "1. 준비"를 먼저 한다.
+시작할 때 Skill 도구로 `meeting-prep:setup`을 불러 "1. 준비"를 먼저 한다.
 
 이 채팅의 세션 ID: `${CLAUDE_SESSION_ID}`
 
