@@ -1,12 +1,14 @@
 ---
 name: meeting
-description: 교수님 미팅 자료(PPTX, PDF, HTML)를 만든다. 미팅 종류(연구/프로젝트/혼합), 주제, 세부 사항을 받아 작업 로그와 지난 피드백을 근거로 목차를 먼저 확인받고 슬라이드를 만든다. "미팅 자료 만들어줘", "이번 주 미팅 준비"라고 할 때 사용한다.
-argument-hint: "[research|project|mixed] [주제] [세부 사항]"
+description: 교수님 미팅 자료(PPTX, PDF)를 만든다. 주제와 세부 사항을 받아 작업 로그와 지난 피드백을 근거로 목차를 먼저 확인받고 슬라이드를 만든다. "이번 주 미팅 자료 만들어줘", "미팅 준비해줘", "교수님께 보여드릴 자료 만들어줘"라고 할 때 사용한다.
+argument-hint: "[주제] [세부 사항]"
 ---
 
 # 미팅 자료 만들기
 
-허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`, 렌더러는 `node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js"`이다. CLI 결과의 `ok`가 false면 `error`를 전하고 멈춘다. `NO_HUB`면 `/meeting-prep:meeting-init`을 안내한다. 지금 바로 만들지 물어보고, 원하면 meeting-init 절차를 따른다. `deck.md` 작성 규칙은 `${CLAUDE_PLUGIN_ROOT}/skills/meeting/deck-format.md`에 있다. 4단계 전에 반드시 읽는다.
+허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`, 렌더러는 `node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js"`이다. CLI 결과의 `ok`가 false면 `error`를 전하고 멈춘다. `deck.md` 작성 규칙은 `${CLAUDE_PLUGIN_ROOT}/skills/meeting/deck-format.md`에 있다. 4단계 전에 반드시 읽는다.
+
+시작할 때 `setup` 스킬의 "1. 준비"를 먼저 한다.
 
 이 채팅의 세션 ID: `${CLAUDE_SESSION_ID}`
 
@@ -19,17 +21,19 @@ argument-hint: "[research|project|mixed] [주제] [세부 사항]"
 ## 1. 입력 받기
 
 `$ARGUMENTS`에서 찾고, 빠진 것만 **한 메시지에** 묻는다.
-- **종류**: `research`(연구·논문), `project`(프로젝트·과제), `mixed`(둘 다)
 - **주제**: 교수님이 이번에 보자고 하신 것
 - **세부 사항**: 특히 강조할 부분. 분량의 대부분을 여기에 쓴다.
-- 선택: 미팅 날짜, 발표 시간(기본 10~15분), 형식(기본 pptx, pdf, html 모두)
+
+나머지는 묻지 않고 기본값을 쓴다. 4단계 목차 표 아래에 `15분 · PPTX/PDF · <미팅 날짜 또는 "날짜 미정">`을 적어 사용자가 바꿀 수 있게 한다.
+- 발표 시간: 15분
+- 형식: `pptx,pdf` (사용자가 원하면 `html`도 추가)
+- 종류: 선택된 트랙의 종류(`research`/`project`). 현재 폴더에 연구·프로젝트 트랙이 모두 있으면 "둘 다 넣을까요?"라고 묻고, 넣으면 `mixed`.
 
 ## 2. 트랙과 날짜
 
-- `research`/`project`: `resolve-track --cwd "<현재 폴더>"`로 찾고, 없거나 여러 개면 `status` 목록에서 그 종류의 트랙을 고르게 한다.
-- `mixed`: 포함할 트랙을 여러 개 고르게 한다.
-- 트랙마다 `status --track "<트랙>"`을 실행해 `open`, `previous`를 얻는다.
-- 미팅 날짜: `open.name`이 날짜면 그것을 쓴다. `next`면 날짜를 묻고 `set-date --track "<트랙>" --date <YYYY-MM-DD>`를 실행한 뒤 `status`를 다시 실행한다. 사용자가 날짜를 모르면 `next`인 채로 둔다.
+- 트랙은 준비 단계에서 정해진 트랙이다. `mixed`면 현재 폴더의 트랙 모두.
+- 트랙마다 `status --track "<트랙>"`으로 `open`, `previous`를 얻는다.
+- 미팅 날짜: `open.name`이 날짜면 그것. `next`면 묻지 않고 "날짜 미정"으로 둔다. 사용자가 목차 확인 때 날짜를 알려주면 `set-date --track "<트랙>" --date <YYYY-MM-DD>` 후 `status`를 다시 실행한다.
 
 ## 3. 재료 모으기 (트랙마다, 이 순서로)
 
@@ -43,7 +47,7 @@ argument-hint: "[research|project|mixed] [주제] [세부 사항]"
    - 그다음 주제어로 검색한다. `status`의 `knowledge` 중 `exists: true`인 것만 쓴다.
      - `wiki`: Grep 도구로 주제어를 검색해 가장 관련 있는 페이지 5개 이하만 읽는다.
      - `pdf`: 파일 이름으로 고르고, 필요한 경우에만 앞부분을 읽는다.
-     - `exists: false`인 소스는 "등록된 지식 소스 폴더가 사라졌어요: <경로>. `/meeting-prep:knowledge-add`로 다시 등록할 수 있어요."라고 알린다.
+     - `exists: false`인 소스는 "등록된 지식 소스 폴더가 사라졌어요: <경로>. "내 논문 폴더 다시 연결해줘"라고 하시면 돼요."라고 알린다.
    - `library/`도 `library-list`로 제목을 보고 관련 노트를 읽는다.
    - 아무 지식 소스도 없으면 관련 연구 슬라이드는 로그에 언급된 논문만으로 만들거나 뺀다.
 5. **원본 파일**: 로그의 `산출물:`에 적힌 파일 중 이번 주제와 관련된 것만 연다. 폴더 전체를 훑지 않는다.
@@ -100,8 +104,9 @@ node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js" "<자료 폴더>/deck.md" --form
 - `warnings`는 모두 사용자에게 전한다.
   - 넘침 경고가 있으면 그 슬라이드를 나누거나 줄일지 묻는다.
   - PPTX를 새 번호(`deck-v2.pptx` 등)로 저장했다는 경고가 있으면, 직접 고친 파일은 그대로 두었다고 설명한다.
-  - PDF를 건너뛰었으면 Chrome이나 Edge를 설치하거나 `MEETING_PREP_BROWSER` 환경 변수로 경로를 지정하면 된다고 안내한다.
-- Node.js나 `node_modules`가 없어 실행이 안 되면 `deck.md`는 저장됐다고 알리고, `/meeting-prep:meeting-init`의 1단계를 안내한다.
+  - PDF를 건너뛰었으면(브라우저 없음) Chrome이나 Edge를 설치하거나 `MEETING_PREP_BROWSER` 환경 변수로 경로를 지정하면 된다고 안내한다.
+  - **PDF 생성 실패 경고**가 있으면: "PDF 생성이 막혔어요. 샌드박스 때문일 수 있어요. 샌드박스 밖에서 다시 실행할까요?"라고 묻고, 허락하면 같은 렌더 명령을 샌드박스 없이 다시 실행한다. **파일을 다른 경로에 복사하는 우회는 하지 않는다.** 다시 실패하면 경고 메시지(브라우저 출력 포함)를 그대로 보여준다.
+- 모듈을 찾지 못해 실행이 안 되면 setup 스킬 "1. 준비"의 패키지 설치를 한 뒤 다시 실행한다.
 
 ## 7. 알려주기
 
