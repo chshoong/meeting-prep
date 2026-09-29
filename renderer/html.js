@@ -118,7 +118,7 @@ body { font-family: '${FONT.face}', '${FONT.fallback}', sans-serif; color: #${CO
 @media print {
   html, body { background: #fff; }
   .slide { display: block !important; position: relative !important; left: auto !important; top: auto !important; transform: none !important; }
-  .slide:not(:last-child) { break-after: page; }
+  .slide:not(:last-of-type) { break-after: page; }
   .notes { display: none !important; }
 }`;
 }

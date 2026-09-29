@@ -51,3 +51,9 @@ test('esc와 relUrl', () => {
   assert.equal(esc('<a href="x">&</a>'), '&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;');
   assert.equal(relUrl(path.resolve('/a/b'), path.resolve('/a/b/c d/e.png')), 'c%20d/e.png');
 });
+
+test('인쇄: 마지막 슬라이드에는 쪽 나누기가 없다', () => {
+  const html = build(makeSampleDeck());
+  assert.ok(html.includes('.slide:not(:last-of-type)'));
+  assert.ok(!html.includes(':not(:last-child)'));
+});
