@@ -1,0 +1,126 @@
+#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import { parseArgs } from 'node:util';
+import { fileURLToPath } from 'node:url';
+import * as hub from './lib.js';
+import { readTranscripts, transcriptsRoot } from './transcripts.js';
+
+const OPTIONS = {
+  path: { type: 'string' }, type: { type: 'string' }, name: { type: 'string' },
+  source: { type: 'string', multiple: true }, description: { type: 'string' },
+  cwd: { type: 'string' }, track: { type: 'string' }, date: { type: 'string' },
+  session: { type: 'string' }, file: { type: 'string' }, slug: { type: 'string' },
+  'deck-dir': { type: 'string' }, src: { type: 'string' },
+  since: { type: 'string' }, exclude: { type: 'string' }, 'max-chars': { type: 'string' },
+};
+
+function need(v, ...keys) {
+  for (const k of keys) {
+    if (v[k] == null || v[k] === '') throw new hub.HubError('MISSING_ARG', `--${k} 옵션이 필요합니다`);
+  }
+}
+
+function readInput(file, cwd) {
+  const raw = file === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(path.resolve(cwd, file), 'utf8');
+  return raw.replace(/^\uFEFF/, '');
+}
+
+const COMMANDS = {
+  init: (v, c) => hub.initHub(v.path ?? hub.getHubPath(c.env) ?? hub.defaultHubPath(), c.env),
+  status: (v, c) => hub.status(hub.requireHub(c.env), v.track),
+  'knowledge-add': (v, c) => {
+    need(v, 'type', 'path');
+    return { knowledge: hub.addKnowledge(hub.requireHub(c.env), { type: v.type, path: path.resolve(c.cwd, v.path) }) };
+  },
+  'track-add': (v, c) => {
+    need(v, 'name', 'type');
+    return hub.addTrack(hub.requireHub(c.env), {
+      name: v.name, type: v.type, description: v.description ?? '',
+      sources: (v.source ?? []).map(s => path.resolve(c.cwd, s)),
+    });
+  },
+  'resolve-track': (v, c) => ({ matches: hub.resolveTrack(hub.requireHub(c.env), path.resolve(c.cwd, v.cwd ?? '.')) }),
+  'set-date': (v, c) => {
+    need(v, 'track', 'date');
+    return hub.setCycleDate(hub.findTrack(hub.requireHub(c.env), v.track).dir, v.date);
+  },
+  'last-log': (v, c) => {
+    need(v, 'track', 'session');
+    const t = hub.findTrack(hub.requireHub(c.env), v.track);
+    const open = hub.openCycle(t.dir);
+    const read = dir => {
+      const file = path.join(dir, 'log.md');
+      return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+    };
+    let last = hub.lastLogEntry(read(open.dir), v.session);
+    let lastCycle = last ? open.name : null;
+    if (!last) {
+      const { previous } = hub.getCycles(t.dir);
+      if (previous) {
+        last = hub.lastLogEntry(read(previous.dir), v.session);
+        lastCycle = last ? previous.name : null;
+      }
+    }
+    return { cycle: open.name, last, lastCycle };
+  },
+  'log-append': (v, c) => {
+    need(v, 'track', 'session', 'file');
+    const t = hub.findTrack(hub.requireHub(c.env), v.track);
+    const body = readInput(v.file, c.cwd).trim();
+    return hub.appendLog(t.dir, `${hub.formatLogHeading(new Date(), v.session)}\n${body}`);
+  },
+  'feedback-close': (v, c) => {
+    need(v, 'track', 'file');
+    const t = hub.findTrack(hub.requireHub(c.env), v.track);
+    return hub.closeCycle(t.dir, readInput(v.file, c.cwd), v.date ? { today: v.date } : {});
+  },
+  'library-list': (v, c) => ({ notes: hub.listLibrary(hub.requireHub(c.env)) }),
+  'library-add': (v, c) => {
+    need(v, 'slug', 'file');
+    return hub.addLibraryNote(hub.requireHub(c.env), v.slug, readInput(v.file, c.cwd));
+  },
+  'copy-asset': (v, c) => {
+    need(v, 'deck-dir', 'src');
+    return hub.copyAsset(path.resolve(c.cwd, v['deck-dir']), path.resolve(c.cwd, v.src));
+  },
+  transcripts: (v, c) => {
+    need(v, 'track');
+    const t = hub.findTrack(hub.requireHub(c.env), v.track);
+    const { previous } = hub.getCycles(t.dir);
+    const since = v.since ?? (previous ? previous.name.slice(0, 10) : hub.localDate(new Date(Date.now() - 14 * 864e5)));
+    const r = readTranscripts({
+      root: transcriptsRoot(c.env), since, paths: t.sources, excludeSession: v.exclude ?? null,
+      maxChars: v['max-chars'] ? Number(v['max-chars']) : 60000,
+    });
+    return { since, ...r };
+  },
+};
+
+export async function run(argv, { env = process.env, cwd = process.cwd() } = {}) {
+  const [command, ...rest] = argv;
+  const fn = COMMANDS[command];
+  if (!fn) {
+    return { code: 1, output: { ok: false, code: 'UNKNOWN_COMMAND', error: `알 수 없는 명령입니다: ${command ?? '(없음)'}. 가능한 명령: ${Object.keys(COMMANDS).join(', ')}` } };
+  }
+  let values;
+  try {
+    ({ values } = parseArgs({ args: rest, options: OPTIONS, strict: true }));
+  } catch (e) {
+    return { code: 1, output: { ok: false, code: 'BAD_ARGS', error: e.message } };
+  }
+  try {
+    const result = await fn(values, { env, cwd });
+    return { code: 0, output: { ok: true, ...result } };
+  } catch (e) {
+    return { code: 1, output: { ok: false, code: e.code ?? 'ERROR', error: e.message } };
+  }
+}
+
+const same = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+const isMain = process.argv[1] && same(path.resolve(process.argv[1]), fileURLToPath(import.meta.url));
+if (isMain) {
+  const { code, output } = await run(process.argv.slice(2));
+  process.stdout.write(JSON.stringify(output, null, 2) + '\n');
+  process.exit(code);
+}
