@@ -153,7 +153,10 @@ export function addTrack(hubPath, { name, type, sources = [], description = '' }
   const clean = String(name ?? '').trim();
   if (!clean) throw new HubError('BAD_NAME', '트랙 이름이 필요합니다');
   if (listTracks(hubPath).some(t => t.name === clean)) throw new HubError('EXISTS', `이미 있는 트랙입니다: ${clean}`);
-  const dir = path.join(hubPath, 'tracks', type, safeName(clean));
+  const folder = safeName(clean);
+  if (!folder || folder.startsWith('.')) throw new HubError('BAD_NAME', `트랙 이름으로 쓸 수 없는 이름입니다: ${clean}`);
+  const dir = path.join(hubPath, 'tracks', type, folder);
+  if (fs.existsSync(dir)) throw new HubError('EXISTS', `이미 같은 폴더를 쓰는 트랙이 있습니다: ${path.basename(dir)}`);
   const abs = sources.map(s => path.resolve(s));
   fs.mkdirSync(path.join(dir, 'cycles', 'next'), { recursive: true });
   const body = `# ${clean}\n\n${description || '목표와 현재 단계를 자유롭게 적어주세요.'}\n`;

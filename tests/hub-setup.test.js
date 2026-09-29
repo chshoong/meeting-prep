@@ -83,6 +83,31 @@ test('addTrack: 잘못된 종류, 빈 이름, 중복 거부', () => {
   assert.throws(() => hub.addTrack(hubPath, { name: '과제B', type: 'research' }), e => e.code === 'EXISTS');
 });
 
+test('addTrack: 같은 폴더로 매핑되는 이름은 덮어쓰지 않고 EXISTS', () => {
+  const { env, hubPath } = freshEnv();
+  hub.initHub(hubPath, env);
+  const first = hub.addTrack(hubPath, { name: 'a/b', type: 'research', description: '첫 트랙' });
+  const file = path.join(first.dir, 'track.md');
+  const before = fs.readFileSync(file, 'utf8');
+  assert.throws(() => hub.addTrack(hubPath, { name: 'a:b', type: 'research', description: '둘째' }), e => e.code === 'EXISTS');
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+});
+
+test('addTrack: 점으로 시작하는 이름 거부', () => {
+  const { env, hubPath } = freshEnv();
+  hub.initHub(hubPath, env);
+  for (const name of ['..', '.', '.숨김']) {
+    assert.throws(() => hub.addTrack(hubPath, { name, type: 'project' }), e => e.code === 'BAD_NAME', name);
+  }
+});
+
+test('addTrack: 윈도우에서는 대소문자만 다른 이름도 EXISTS', { skip: process.platform !== 'win32' }, () => {
+  const { env, hubPath } = freshEnv();
+  hub.initHub(hubPath, env);
+  hub.addTrack(hubPath, { name: '논문a', type: 'research' });
+  assert.throws(() => hub.addTrack(hubPath, { name: '논문A', type: 'research' }), e => e.code === 'EXISTS');
+});
+
 test('safeName: 경로에 쓸 수 없는 문자 치환', () => {
   assert.equal(hub.safeName('a/b:c?'), 'a-b-c-');
 });
