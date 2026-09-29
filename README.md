@@ -17,16 +17,23 @@ claude plugin install meeting-prep@meeting-prep-local
 
 한 번만 써보려면: `claude --plugin-dir <이 폴더 경로>`
 
-## 사용 흐름
+## 사용법
 
-```
-/meeting-prep:meeting-init     처음 한 번: 허브 만들기, 논문 정리 폴더 등록(선택)
-/meeting-prep:track-add        논문·프로젝트 트랙 추가
-/meeting-prep:log              작업하다가 수시로: 이번 채팅에서 한 일 기록
-/meeting-prep:meeting          미팅 전: 자료 만들기 (목차를 먼저 확인받음)
-/meeting-prep:feedback         미팅 후: 교수님 피드백 정리 → 다음 사이클 시작
-/meeting-prep:knowledge-add    나중에 논문 정리 폴더 추가
-```
+명령어를 외울 필요 없어요. 작업하던 폴더에서 Claude에게 말하면 돼요.
+
+| 하고 싶은 것 | 이렇게 말하기 |
+|---|---|
+| 작업 기록 | "기록해줘" — 또는 Claude가 결과가 나올 때 "💾 여기까지 기록해둘까요?"라고 먼저 물어요 |
+| 미팅 후 피드백 | "미팅 끝났어, 피드백 정리해줘" + 노션 메모나 녹음 텍스트 |
+| 미팅 자료 | "이번 주 미팅 자료 만들어줘" |
+| 설정 바꾸기 | "내 llm-wiki도 참고해줘", "이 폴더도 KAMP에 포함해줘", "허브 위치 바꿔줘" |
+
+처음 쓰면 허브(`~/meeting-hub`)가 자동으로 만들어지고, 이 폴더를 어떤 이름으로 등록할지 한 번만 물어요.
+슬래시 명령(`/meeting-prep:log`, `/meeting-prep:feedback`, `/meeting-prep:meeting`)은 지름길로 쓸 수 있어요.
+
+### 기록 제안 간격
+
+기록이 90분 넘게 없으면 Claude가 적당한 순간에 제안해요. 간격은 `~/.meeting-prep/config.json`의 `nudgeMinutes`로 바꿀 수 있어요.
 
 ## 허브 구조
 
@@ -45,7 +52,7 @@ claude plugin install meeting-prep@meeting-prep-local
 ## 렌더러만 쓰기
 
 ```
-node renderer/render.js <deck.md> --formats pptx,html,pdf
+node renderer/render.js <deck.md> --formats pptx,pdf
 ```
 
 `deck.md` 형식은 `skills/meeting/deck-format.md`를 보세요.
@@ -55,4 +62,5 @@ node renderer/render.js <deck.md> --formats pptx,html,pdf
 ```
 npm install
 npm test
+npm run reinstall   # 코드를 고친 뒤 설치본 갱신
 ```
