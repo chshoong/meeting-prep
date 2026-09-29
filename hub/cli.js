@@ -5,13 +5,14 @@ import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import * as hub from './lib.js';
 import { readTranscripts, transcriptsRoot } from './transcripts.js';
+import { recordNudge, nudgeMinutes } from './nudge.js';
 
 const OPTIONS = {
   path: { type: 'string' }, type: { type: 'string' }, name: { type: 'string' },
   source: { type: 'string', multiple: true }, description: { type: 'string' },
   cwd: { type: 'string' }, track: { type: 'string' }, date: { type: 'string' },
   session: { type: 'string' }, file: { type: 'string' }, slug: { type: 'string' },
-  'deck-dir': { type: 'string' }, src: { type: 'string' },
+  'deck-dir': { type: 'string' }, src: { type: 'string' }, action: { type: 'string' },
   since: { type: 'string' }, exclude: { type: 'string' }, 'max-chars': { type: 'string' },
 };
 
@@ -47,28 +48,34 @@ const COMMANDS = {
   },
   'last-log': (v, c) => {
     need(v, 'track', 'session');
-    const t = hub.findTrack(hub.requireHub(c.env), v.track);
-    const open = hub.openCycle(t.dir);
-    const read = dir => {
-      const file = path.join(dir, 'log.md');
-      return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
-    };
-    let last = hub.lastLogEntry(read(open.dir), v.session);
-    let lastCycle = last ? open.name : null;
-    if (!last) {
-      const { previous } = hub.getCycles(t.dir);
-      if (previous) {
-        last = hub.lastLogEntry(read(previous.dir), v.session);
-        lastCycle = last ? previous.name : null;
-      }
-    }
-    return { cycle: open.name, last, lastCycle };
+    return hub.findLastLog(hub.findTrack(hub.requireHub(c.env), v.track).dir, v.session);
   },
   'log-append': (v, c) => {
     need(v, 'track', 'session', 'file');
     const t = hub.findTrack(hub.requireHub(c.env), v.track);
     const body = readInput(v.file, c.cwd).trim();
     return hub.appendLog(t.dir, `${hub.formatLogHeading(new Date(), v.session)}\n${body}`);
+  },
+  ensure: (v, c) => {
+    const r = hub.ensureHub(c.env);
+    return { ...r, tracks: hub.resolveTrack(r.hubPath, path.resolve(c.cwd, v.cwd ?? '.')) };
+  },
+  'source-add': (v, c) => {
+    need(v, 'track', 'path');
+    return hub.addSource(hub.requireHub(c.env), v.track, path.resolve(c.cwd, v.path));
+  },
+  'hub-move': (v, c) => {
+    need(v, 'path');
+    return hub.moveHub(hub.requireHub(c.env), path.resolve(c.cwd, v.path), c.env);
+  },
+  nudge: (v, c) => {
+    need(v, 'session', 'action');
+    return recordNudge(hub.requireHub(c.env), v.session, v.action, { minutes: nudgeMinutes(c.env) });
+  },
+  'log-amend': (v, c) => {
+    need(v, 'track', 'session', 'file');
+    const t = hub.findTrack(hub.requireHub(c.env), v.track);
+    return hub.amendLastLog(t.dir, v.session, readInput(v.file, c.cwd));
   },
   'feedback-close': (v, c) => {
     need(v, 'track', 'file');

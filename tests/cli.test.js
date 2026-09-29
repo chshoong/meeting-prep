@@ -154,3 +154,49 @@ test('실제 프로세스: 100KB가 넘는 JSON도 잘리지 않고 출력됨', 
   assert.equal(out.ok, true);
   assert.ok(out.digest.length > 100000, String(out.digest.length));
 });
+
+test('ensure: 허브 자동 생성과 트랙 찾기', async () => {
+  const { env, hubPath, root } = ctx();
+  const e = { ...env, MEETING_HUB: hubPath };
+  const first = await run(['ensure', '--cwd', root], { env: e });
+  assert.equal(first.code, 0);
+  assert.equal(first.output.createdHub, true);
+  assert.deepEqual(first.output.tracks, []);
+  await run(['track-add', '--name', 'KAMP', '--type', 'project', '--source', root], { env: e });
+  const second = await run(['ensure', '--cwd', path.join(root, 'sub')], { env: e });
+  assert.equal(second.output.createdHub, false);
+  assert.deepEqual(second.output.tracks.map(t => t.name), ['KAMP']);
+});
+
+test('source-add, hub-move', async () => {
+  const { env, hubPath, root } = ctx();
+  await run(['init', '--path', hubPath], { env });
+  await run(['track-add', '--name', 'KAMP', '--type', 'project'], { env });
+  const add = await run(['source-add', '--track', 'KAMP', '--path', path.join(root, '폴더 B')], { env });
+  assert.deepEqual(add.output.sources, [path.join(root, '폴더 B')]);
+  const target = path.join(root, '옮긴 허브');
+  const mv = await run(['hub-move', '--path', target], { env });
+  assert.equal(mv.output.hubPath, target);
+  assert.equal((await run(['status'], { env })).output.hubPath, target);
+  fs.mkdirSync(path.join(root, '있음'));
+  assert.equal((await run(['hub-move', '--path', path.join(root, '있음')], { env })).output.code, 'EXISTS');
+});
+
+test('nudge와 log-amend', async () => {
+  const { env, hubPath, root } = ctx();
+  await run(['init', '--path', hubPath], { env });
+  await run(['track-add', '--name', 'T', '--type', 'project'], { env });
+  assert.ok((await run(['nudge', '--session', 's', '--action', 'declined'], { env })).output.snoozeUntil);
+  assert.equal((await run(['nudge', '--session', 's', '--action', 'nope'], { env })).output.code, 'BAD_ARGS');
+  assert.equal((await run(['nudge', '--session', 's'], { env })).output.code, 'MISSING_ARG');
+  const entry = path.join(root, 'e.md');
+  fs.writeFileSync(entry, '- 한 일: 틀림', 'utf8');
+  await run(['log-append', '--track', 'T', '--session', 's', '--file', entry], { env });
+  fs.writeFileSync(entry, '- 한 일: 고침', 'utf8');
+  const am = await run(['log-amend', '--track', 'T', '--session', 's', '--file', entry], { env });
+  assert.equal(am.code, 0);
+  const text = fs.readFileSync(am.output.file, 'utf8');
+  assert.match(text, /고침/);
+  assert.doesNotMatch(text, /틀림/);
+  assert.equal((await run(['log-amend', '--track', 'T', '--session', 'other', '--file', entry], { env })).output.code, 'NO_ENTRY');
+});
