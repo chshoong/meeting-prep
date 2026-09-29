@@ -1,0 +1,173 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { load, dump } from 'js-yaml';
+
+export class HubError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+}
+
+export const TRACK_TYPES = ['research', 'project'];
+export const KNOWLEDGE_TYPES = ['wiki', 'pdf'];
+
+// ---------- 설정과 허브 위치 ----------
+
+export function configPath(env = process.env) {
+  return env.MEETING_PREP_CONFIG ?? path.join(os.homedir(), '.meeting-prep', 'config.json');
+}
+
+export function getHubPath(env = process.env) {
+  if (env.MEETING_HUB) return path.resolve(env.MEETING_HUB);
+  try {
+    const cfg = JSON.parse(fs.readFileSync(configPath(env), 'utf8'));
+    if (cfg.hubPath) return cfg.hubPath;
+  } catch {
+    // 설정 없음
+  }
+  return null;
+}
+
+export function defaultHubPath() {
+  return path.join(os.homedir(), 'meeting-hub');
+}
+
+// ---------- 머리말 ----------
+
+export function splitFrontmatter(text) {
+  const t = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  const m = t.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!m) return { data: {}, body: t };
+  return { data: load(m[1]) ?? {}, body: m[2] };
+}
+
+export function joinFrontmatter(data, body) {
+  return `---\n${dump(data, { lineWidth: -1 })}---\n${body}`;
+}
+
+// ---------- 허브 ----------
+
+const HUB_BODY = `# 미팅 허브
+
+트랙은 \`tracks/research\`, \`tracks/project\` 아래에 있습니다.
+위 머리말의 \`knowledge\`에 논문 정리 폴더(지식 소스)를 등록합니다. 비어 있으면 \`library/\`가 기본 지식 소스입니다.
+`;
+
+export function initHub(hubPath, env = process.env) {
+  const root = path.resolve(hubPath);
+  const hubMd = path.join(root, 'hub.md');
+  const existed = fs.existsSync(hubMd);
+  for (const d of ['library', '.tmp', path.join('tracks', 'research'), path.join('tracks', 'project')]) {
+    fs.mkdirSync(path.join(root, d), { recursive: true });
+  }
+  if (!existed) fs.writeFileSync(hubMd, joinFrontmatter({ knowledge: [] }, HUB_BODY), 'utf8');
+  const cfg = configPath(env);
+  fs.mkdirSync(path.dirname(cfg), { recursive: true });
+  fs.writeFileSync(cfg, JSON.stringify({ hubPath: root }, null, 2), 'utf8');
+  return { hubPath: root, created: !existed };
+}
+
+export function requireHub(env = process.env) {
+  const p = getHubPath(env);
+  if (!p || !fs.existsSync(path.join(p, 'hub.md'))) {
+    throw new HubError('NO_HUB', '허브가 없습니다. /meeting-prep:meeting-init 으로 먼저 만들어주세요');
+  }
+  return p;
+}
+
+// ---------- 경로 비교 ----------
+
+function norm(p) {
+  const r = path.resolve(p).replace(/\\/g, '/').replace(/\/+$/, '');
+  return process.platform === 'win32' ? r.toLowerCase() : r;
+}
+
+export function samePath(a, b) {
+  return norm(a) === norm(b);
+}
+
+export function isInside(child, parent) {
+  const c = norm(child);
+  const p = norm(parent);
+  return c === p || c.startsWith(p + '/');
+}
+
+export function safeName(name) {
+  return String(name).trim().replace(/[\\/:*?"<>|]/g, '-');
+}
+
+// ---------- 지식 소스 ----------
+
+export function readKnowledge(hubPath) {
+  const { data } = splitFrontmatter(fs.readFileSync(path.join(hubPath, 'hub.md'), 'utf8'));
+  const list = Array.isArray(data.knowledge) ? data.knowledge : [];
+  return list.map(k => ({ type: k.type, path: k.path, exists: fs.existsSync(k.path) }));
+}
+
+export function addKnowledge(hubPath, { type, path: p }) {
+  if (!KNOWLEDGE_TYPES.includes(type)) throw new HubError('BAD_TYPE', `지식 소스 형식은 ${KNOWLEDGE_TYPES.join(', ')} 중 하나여야 합니다`);
+  if (!p) throw new HubError('MISSING_ARG', '지식 소스 경로가 필요합니다');
+  const abs = path.resolve(p);
+  if (!fs.existsSync(abs)) throw new HubError('NOT_FOUND', `폴더가 없습니다: ${abs}`);
+  const file = path.join(hubPath, 'hub.md');
+  const { data, body } = splitFrontmatter(fs.readFileSync(file, 'utf8'));
+  data.knowledge = Array.isArray(data.knowledge) ? data.knowledge : [];
+  if (!data.knowledge.some(k => samePath(k.path, abs))) data.knowledge.push({ type, path: abs });
+  fs.writeFileSync(file, joinFrontmatter(data, body), 'utf8');
+  return readKnowledge(hubPath);
+}
+
+// ---------- 트랙 ----------
+
+export function newLogHeader(todos) {
+  const list = todos.length ? todos.map(t => `- [ ] #${t.id} ${t.text}`).join('\n') : '- (없음)';
+  return `# 작업 로그\n\n## 이번 사이클 할 일 (지난 미팅 피드백)\n\n${list}\n\n## 기록\n`;
+}
+
+export function listTracks(hubPath) {
+  const out = [];
+  for (const type of TRACK_TYPES) {
+    const dir = path.join(hubPath, 'tracks', type);
+    if (!fs.existsSync(dir)) continue;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      const tdir = path.join(dir, e.name);
+      const file = path.join(tdir, 'track.md');
+      if (!fs.existsSync(file)) continue;
+      const { data } = splitFrontmatter(fs.readFileSync(file, 'utf8'));
+      out.push({
+        name: String(data.name ?? e.name),
+        type,
+        dir: tdir,
+        sources: Array.isArray(data.sources) ? data.sources.map(String) : [],
+      });
+    }
+  }
+  return out;
+}
+
+export function addTrack(hubPath, { name, type, sources = [], description = '' }) {
+  if (!TRACK_TYPES.includes(type)) throw new HubError('BAD_TYPE', '트랙 종류는 research 또는 project여야 합니다');
+  const clean = String(name ?? '').trim();
+  if (!clean) throw new HubError('BAD_NAME', '트랙 이름이 필요합니다');
+  if (listTracks(hubPath).some(t => t.name === clean)) throw new HubError('EXISTS', `이미 있는 트랙입니다: ${clean}`);
+  const dir = path.join(hubPath, 'tracks', type, safeName(clean));
+  const abs = sources.map(s => path.resolve(s));
+  fs.mkdirSync(path.join(dir, 'cycles', 'next'), { recursive: true });
+  const body = `# ${clean}\n\n${description || '목표와 현재 단계를 자유롭게 적어주세요.'}\n`;
+  fs.writeFileSync(path.join(dir, 'track.md'), joinFrontmatter({ name: clean, type, sources: abs }, body), 'utf8');
+  fs.writeFileSync(path.join(dir, 'cycles', 'next', 'log.md'), newLogHeader([]), 'utf8');
+  return { name: clean, type, dir, sources: abs };
+}
+
+export function findTrack(hubPath, name) {
+  const t = listTracks(hubPath).find(x => x.name === name);
+  if (!t) throw new HubError('NO_TRACK', `트랙을 찾을 수 없습니다: ${name}`);
+  return t;
+}
+
+export function resolveTrack(hubPath, cwd) {
+  return listTracks(hubPath).filter(t => t.sources.some(s => isInside(cwd, s)));
+}
