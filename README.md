@@ -1,7 +1,7 @@
 # meeting-prep
 
 대학원생을 위한 교수님 미팅 자료 생성기 (Claude Code 플러그인).
-Claude와 작업하면서 로그를 남기고, 미팅이 끝나면 피드백을 기록하면, 다음 미팅 자료(PPTX, PDF, HTML)를 그 기록을 근거로 만들어줍니다.
+Claude와 작업하면서 로그를 남기고, 미팅이 끝나면 피드백을 기록하면, 다음 미팅 자료(PPTX, PDF)를 그 기록을 근거로 만들어줍니다.
 
 ## 필요한 것
 
@@ -34,6 +34,8 @@ claude plugin install meeting-prep@meeting-prep-local
 ### 기록 제안 간격
 
 기록이 90분 넘게 없으면 Claude가 적당한 순간에 제안해요. 간격은 `~/.meeting-prep/config.json`의 `nudgeMinutes`로 바꿀 수 있어요.
+
+처음 몇 번은 Claude가 `node ...` 명령 실행 허락을 물을 수 있어요. 매번 묻지 않게 하려면 허락할 때 '항상 허용'을 고르세요.
 
 ## 허브 구조
 
