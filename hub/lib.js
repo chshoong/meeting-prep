@@ -174,3 +174,181 @@ export function findTrack(hubPath, name) {
 export function resolveTrack(hubPath, cwd) {
   return listTracks(hubPath).filter(t => t.sources.some(s => isInside(cwd, s)));
 }
+
+// ---------- 날짜 ----------
+
+const pad = n => String(n).padStart(2, '0');
+
+export function localDate(d = new Date()) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+export function formatLogHeading(d, sessionId) {
+  return `## ${localDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())} · session ${sessionId}`;
+}
+
+// ---------- 사이클 ----------
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const CYCLE_RE = /^(next|\d{4}-\d{2}-\d{2}(-\d+)?)$/;
+
+export function getCycles(trackDir) {
+  const root = path.join(trackDir, 'cycles');
+  const all = fs.existsSync(root)
+    ? fs.readdirSync(root, { withFileTypes: true })
+      .filter(e => e.isDirectory() && CYCLE_RE.test(e.name))
+      .map(e => ({ name: e.name, dir: path.join(root, e.name), closed: fs.existsSync(path.join(root, e.name, 'feedback.md')) }))
+    : [];
+  const open = all.filter(c => !c.closed);
+  if (open.length > 1) {
+    throw new HubError('MULTI_OPEN', `진행 중인 사이클이 여러 개입니다: ${open.map(c => c.name).join(', ')}. 끝난 사이클 폴더에 feedback.md를 넣어 정리해주세요`);
+  }
+  const closed = all.filter(c => c.closed).sort((a, b) => a.name.localeCompare(b.name));
+  return { open: open[0] ?? null, closed, previous: closed.at(-1) ?? null };
+}
+
+export function openCycle(trackDir) {
+  const { open } = getCycles(trackDir);
+  if (open) return open;
+  const dir = path.join(trackDir, 'cycles', 'next');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'log.md'), newLogHeader([]), 'utf8');
+  return { name: 'next', dir, closed: false };
+}
+
+function renameOpen(trackDir, open, name) {
+  const target = path.join(trackDir, 'cycles', name);
+  fs.renameSync(open.dir, target);
+  return { name, dir: target, closed: false };
+}
+
+export function setCycleDate(trackDir, date) {
+  if (!DATE_RE.test(String(date))) throw new HubError('BAD_DATE', '날짜는 YYYY-MM-DD 형식이어야 합니다');
+  const open = openCycle(trackDir);
+  if (open.name === date) return open;
+  if (fs.existsSync(path.join(trackDir, 'cycles', date))) throw new HubError('EXISTS', `이미 ${date} 사이클이 있습니다`);
+  return renameOpen(trackDir, open, date);
+}
+
+function uniqueCycleName(trackDir, date) {
+  let name = date;
+  let n = 2;
+  while (fs.existsSync(path.join(trackDir, 'cycles', name))) name = `${date}-${n++}`;
+  return name;
+}
+
+export function parseTodos(feedbackText) {
+  const todos = [];
+  let inTodo = false;
+  for (const line of feedbackText.replace(/\r\n?/g, '\n').split('\n')) {
+    if (/^##\s/.test(line)) {
+      inTodo = /^##\s*할 일/.test(line);
+      continue;
+    }
+    if (!inTodo) continue;
+    const m = line.match(/^\s*-\s*\[( |x|X)\]\s*#(\d+)\s+(.*)$/);
+    if (m) todos.push({ id: Number(m[2]), text: m[3].trim(), done: m[1] !== ' ' });
+  }
+  return todos;
+}
+
+export function closeCycle(trackDir, feedbackText, { today = localDate() } = {}) {
+  let open = openCycle(trackDir);
+  if (open.name === 'next') open = renameOpen(trackDir, open, uniqueCycleName(trackDir, today));
+  const text = feedbackText.replace(/^\uFEFF/, '');
+  fs.writeFileSync(path.join(open.dir, 'feedback.md'), text.endsWith('\n') ? text : `${text}\n`, 'utf8');
+  const todos = parseTodos(text);
+  const nextDir = path.join(trackDir, 'cycles', 'next');
+  fs.mkdirSync(nextDir, { recursive: true });
+  fs.writeFileSync(path.join(nextDir, 'log.md'), newLogHeader(todos), 'utf8');
+  return { closed: open.name, opened: 'next', todos };
+}
+
+// ---------- 로그 ----------
+
+export function lastLogEntry(logText, sessionId) {
+  const re = /^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) · session (\S+)[ \t]*$/gm;
+  let m;
+  let last = null;
+  while ((m = re.exec(logText)) !== null) {
+    if (m[2] === sessionId) last = { timestamp: m[1], sessionId: m[2] };
+  }
+  return last;
+}
+
+export function appendLog(trackDir, entry) {
+  const open = openCycle(trackDir);
+  const file = path.join(open.dir, 'log.md');
+  const prev = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : newLogHeader([]);
+  const sep = prev.endsWith('\n\n') ? '' : prev.endsWith('\n') ? '\n' : '\n\n';
+  fs.writeFileSync(file, `${prev}${sep}${entry.trim()}\n`, 'utf8');
+  return { file, cycle: open.name };
+}
+
+// ---------- library ----------
+
+export function slugify(s) {
+  return String(s).toLowerCase().normalize('NFKC')
+    .replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'note';
+}
+
+export function listLibrary(hubPath) {
+  const dir = path.join(hubPath, 'library');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter(f => f.endsWith('.md')).sort().map(f => {
+    const file = path.join(dir, f);
+    let title = '';
+    try {
+      title = String(splitFrontmatter(fs.readFileSync(file, 'utf8')).data.title ?? '');
+    } catch {
+      // 머리말이 깨진 노트는 제목 없이
+    }
+    return { slug: f.slice(0, -3), title, file };
+  });
+}
+
+export function addLibraryNote(hubPath, slug, text) {
+  const dir = path.join(hubPath, 'library');
+  fs.mkdirSync(dir, { recursive: true });
+  const base = slugify(slug);
+  let name = base;
+  let n = 2;
+  while (fs.existsSync(path.join(dir, `${name}.md`))) name = `${base}-${n++}`;
+  const file = path.join(dir, `${name}.md`);
+  fs.writeFileSync(file, `${text.replace(/^\uFEFF/, '').trim()}\n`, 'utf8');
+  return { file, slug: name };
+}
+
+// ---------- 그림 복사 ----------
+
+export function copyAsset(deckDir, src) {
+  const abs = path.resolve(src);
+  if (!fs.existsSync(abs)) throw new HubError('NOT_FOUND', `파일이 없습니다: ${abs}`);
+  const dir = path.join(deckDir, 'assets');
+  fs.mkdirSync(dir, { recursive: true });
+  const ext = path.extname(abs);
+  const stem = path.basename(abs, ext);
+  const data = fs.readFileSync(abs);
+  let name = `${stem}${ext}`;
+  let n = 2;
+  while (fs.existsSync(path.join(dir, name))) {
+    if (fs.readFileSync(path.join(dir, name)).equals(data)) return { rel: `assets/${name}`, file: path.join(dir, name) };
+    name = `${stem}-${n++}${ext}`;
+  }
+  fs.writeFileSync(path.join(dir, name), data);
+  return { rel: `assets/${name}`, file: path.join(dir, name) };
+}
+
+// ---------- 상태 ----------
+
+export function status(hubPath, trackName) {
+  const tracks = (trackName ? [findTrack(hubPath, trackName)] : listTracks(hubPath)).map(t => {
+    const c = getCycles(t.dir);
+    return {
+      ...t,
+      open: c.open ? { name: c.open.name, dir: c.open.dir } : null,
+      previous: c.previous ? { name: c.previous.name, dir: c.previous.dir } : null,
+    };
+  });
+  return { hubPath, knowledge: readKnowledge(hubPath), libraryCount: listLibrary(hubPath).length, tracks };
+}
