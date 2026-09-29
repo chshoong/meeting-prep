@@ -27,7 +27,7 @@ export function findBrowser({ env = process.env, platform = process.platform, ex
   return browserCandidates(platform, env).find(p => exists(p)) ?? null;
 }
 
-export function renderPdf(htmlPath, pdfPath, browser, { timeoutMs = 60000 } = {}) {
+export function renderPdf(htmlPath, pdfPath, browser, { timeoutMs = 60000, spawnImpl = spawn } = {}) {
   return new Promise((resolve, reject) => {
     const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'meeting-prep-browser-'));
     fs.rmSync(pdfPath, { force: true });
@@ -36,17 +36,25 @@ export function renderPdf(htmlPath, pdfPath, browser, { timeoutMs = 60000 } = {}
       '--no-pdf-header-footer', `--user-data-dir=${profile}`, `--print-to-pdf=${pdfPath}`,
       pathToFileURL(htmlPath).href,
     ];
-    const child = spawn(browser, args, { stdio: 'ignore', windowsHide: true });
-    const timer = setTimeout(() => child.kill(), timeoutMs);
+    const child = spawnImpl(browser, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+    let stderr = '';
+    child.stderr?.on('data', d => { stderr = (stderr + d.toString()).slice(-4096); });
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; child.kill(); }, timeoutMs);
     const cleanup = () => {
       clearTimeout(timer);
       try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* 윈도우에서 잠시 잠겨 있을 수 있음 */ }
     };
+    const fail = () => {
+      const tail = stderr.trim().split(/\r?\n/).slice(-10).join(' / ');
+      const reason = timedOut ? ` (시간 초과 ${timeoutMs / 1000}초)` : '';
+      return new Error(`브라우저가 PDF를 만들지 못했습니다${reason}${tail ? `. 브라우저 출력: ${tail}` : ''}`);
+    };
     child.on('error', e => { cleanup(); reject(e); });
     child.on('exit', () => {
       cleanup();
-      if (fs.existsSync(pdfPath) && fs.statSync(pdfPath).size > 0) resolve(pdfPath);
-      else reject(new Error('브라우저가 PDF를 만들지 못했습니다'));
+      if (!timedOut && fs.existsSync(pdfPath) && fs.statSync(pdfPath).size > 0) resolve(pdfPath);
+      else reject(fail());
     });
   });
 }

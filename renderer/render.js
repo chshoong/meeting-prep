@@ -30,7 +30,7 @@ export function overflowWarnings(slides) {
   return out;
 }
 
-export async function render(deckPath, { formats = ['pptx', 'html', 'pdf'], outDir, browser } = {}) {
+export async function render(deckPath, { formats = ['pptx', 'pdf'], outDir, browser } = {}) {
   const deckDir = path.dirname(path.resolve(deckPath));
   const out = path.resolve(outDir ?? deckDir);
   fs.mkdirSync(out, { recursive: true });
@@ -74,10 +74,10 @@ if (isMain) {
   try {
     const { values, positionals } = parseArgs({
       allowPositionals: true,
-      options: { formats: { type: 'string', default: 'pptx,html,pdf' }, out: { type: 'string' } },
+      options: { formats: { type: 'string', default: 'pptx,pdf' }, out: { type: 'string' } },
     });
     if (!positionals[0]) {
-      console.error('사용법: node render.js <deck.md> [--formats pptx,html,pdf] [--out 폴더]');
+      console.error('사용법: node render.js <deck.md> [--formats pptx,pdf,html] [--out 폴더]');
       process.exitCode = 2;
     } else {
       const result = await render(positionals[0], {

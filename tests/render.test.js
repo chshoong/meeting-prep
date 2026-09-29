@@ -11,12 +11,12 @@ import { makeSampleDeck, tempDir } from './helpers.js';
 
 const CLI = fileURLToPath(new URL('../renderer/render.js', import.meta.url));
 
-test('render: pptx와 html 생성, PDF는 브라우저 없으면 경고 후 건너뜀', async () => {
+test('render: 기본 형식은 pptx와 pdf, 브라우저 없으면 PDF 경고 후 건너뜀', async () => {
   const dir = makeSampleDeck();
   const r = await render(path.join(dir, 'deck.md'), { browser: null });
   assert.equal(r.ok, true);
   assert.ok(fs.existsSync(r.outputs.pptx));
-  assert.ok(fs.existsSync(r.outputs.html));
+  assert.equal(r.outputs.html, undefined);
   assert.equal(r.outputs.pdf, undefined);
   assert.ok(r.warnings.some(w => /PDF를 건너뛰었습니다/.test(w.message)));
 });
