@@ -1,0 +1,11 @@
+{
+  "name": "meeting-prep-local",
+  "owner": { "name": "shoong" },
+  "plugins": [
+    {
+      "name": "meeting-prep",
+      "source": "./",
+      "description": "작업 로그와 교수님 피드백을 쌓아 미팅 자료(PPTX, PDF, HTML)를 만듭니다"
+    }
+  ]
+}
