@@ -113,7 +113,9 @@ export function moveHub(hubPath, target, env = process.env) {
   } catch (e) {
     if (e?.code !== 'EXDEV') throw e;
     fs.cpSync(from, to, { recursive: true });
-    fs.rmSync(from, { recursive: true, force: true });
+    writeConfig({ hubPath: to }, env);
+    try { fs.rmSync(from, { recursive: true, force: true }); } catch { /* 옛 폴더 삭제 실패는 무시 */ }
+    return { hubPath: to };
   }
   writeConfig({ hubPath: to }, env);
   return { hubPath: to };

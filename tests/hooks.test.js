@@ -32,8 +32,9 @@ test('세션 시작: 트랙 폴더면 안내(트랙, 사이클, 할 일 수, CLI
   assert.match(text, /'KAMP' 프로젝트 트랙/);
   assert.match(text, /현재 사이클: next/);
   assert.match(text, /이번 사이클 할 일 2개/);
-  assert.ok(text.includes(CLI_PATH.replaceAll('\\', '/')));
-  assert.match(text, /nudge --session abc --action shown/);
+  assert.ok(CLI_PATH.endsWith('cli.js'));
+  assert.doesNotMatch(text, /nudge/);
+  assert.match(text, /한 채팅에서 제안은 드물게 한다/);
   assert.match(text, /💾 여기까지 기록해둘까요\?/);
 });
 
@@ -52,6 +53,17 @@ test('프롬프트: 첫 메시지는 조용, 90분 뒤 알림, 트랙 밖은 조
   assert.equal(promptContext(input, env, plus(T0, 60)), null);
   assert.match(promptContext(input, env, plus(T0, 95)), /95분 동안 기록이 없었다/);
   assert.equal(promptContext({ ...input, cwd: root }, env, plus(T0, 200)), null);
+});
+
+test('프롬프트: 알림은 창당 한 번만 (훅이 shown을 직접 기록)', () => {
+  const { env, proj } = setup();
+  const input = { session_id: 's9', cwd: proj, prompt: 'x' };
+  promptContext(input, env, T0);
+  const r = promptContext(input, env, plus(T0, 95));
+  assert.match(r, /95분 동안 기록이 없었다/);
+  assert.match(r, /사용자가 거절하면 다시 묻지 않는다/);
+  assert.equal(promptContext(input, env, plus(T0, 100)), null);
+  assert.match(promptContext(input, env, plus(T0, 186)), /91분 동안/);
 });
 
 test('프롬프트: 방금 기록했으면 조용 (로그 시각이 기준)', () => {
