@@ -39,7 +39,7 @@ export function sessionStartContext(input, env = process.env) {
     '- 실험·분석 결과가 나왔거나, 작업 하나가 끝났거나(커밋, 파일 완성, 버그 해결), 사용자가 마무리하는 말을 하면 답변 맨 끝에 한 줄로 기록을 제안한다:',
     '  "💾 여기까지 기록해둘까요? — <한 일 요약, 채팅에 실제로 나온 값만>"',
     '- 작업 도중(명령 실행 중, 질문에 답하는 중)에는 제안하지 않는다.',
-    `- 제안했으면 \`node "${CLI_PATH}" nudge --session ${sid} --action shown\`을 실행한다. 사용자가 거절하면 \`--action declined\`, "나중에"라고 하면 \`--action later\`.`,
+    `- 제안했으면 \`node "${CLI_PATH.replaceAll('\\', '/')}" nudge --session ${sid} --action shown\`을 실행한다. 사용자가 거절하면 \`--action declined\`, "나중에"라고 하면 \`--action later\`.`,
     '- 사용자가 "응"이라고 하면 meeting-prep:log 스킬로 바로 저장한다.',
   ].join('\n');
 }
@@ -51,9 +51,11 @@ export function promptContext(input, env = process.env, now = new Date()) {
   if (!sid) return null;
   let lastLogAt = null;
   for (const t of found.tracks) {
-    const { last } = findLastLog(t.dir, sid);
-    const at = last ? parseLogTimestamp(last.timestamp) : null;
-    if (at && (!lastLogAt || at > lastLogAt)) lastLogAt = at;
+    try {
+      const { last } = findLastLog(t.dir, sid, { create: false });
+      const at = last ? parseLogTimestamp(last.timestamp) : null;
+      if (at && (!lastLogAt || at > lastLogAt)) lastLogAt = at;
+    } catch { /* 깨진 트랙 하나가 나머지를 막지 않게 */ }
   }
   const r = checkNudge({ hubPath: found.hubPath, sessionId: sid, lastLogAt, now, minutes: nudgeMinutes(env) });
   if (!r.due) return null;

@@ -32,7 +32,7 @@ test('세션 시작: 트랙 폴더면 안내(트랙, 사이클, 할 일 수, CLI
   assert.match(text, /'KAMP' 프로젝트 트랙/);
   assert.match(text, /현재 사이클: next/);
   assert.match(text, /이번 사이클 할 일 2개/);
-  assert.ok(text.includes(CLI_PATH));
+  assert.ok(text.includes(CLI_PATH.replaceAll('\\', '/')));
   assert.match(text, /nudge --session abc --action shown/);
   assert.match(text, /💾 여기까지 기록해둘까요\?/);
 });
@@ -72,6 +72,29 @@ test('프롬프트: 거절하면 조용, nudgeMinutes 설정 반영', () => {
   assert.equal(promptContext(input, env, plus(T0, 50)), null);
 });
 
+function snapshot(dir) {
+  const out = [];
+  const walk = d => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) { out.push(p + '/'); walk(p); }
+      else out.push(p + (e.name === 'log.md' ? '\n' +fs.readFileSync(p, 'utf8') : ''));
+    }
+  };
+  walk(dir);
+  return out.sort();
+}
+
+test('프롬프트: 읽기 전용 — 열린 사이클이 없어도 next/를 만들지 않음', () => {
+  const { env, proj, t } = setup();
+  fs.rmSync(path.join(t.dir, 'cycles', 'next'), { recursive: true, force: true });
+  const before = snapshot(t.dir);
+  const input = { session_id: 'ro', cwd: proj, prompt: 'x' };
+  for (const m of [0, 50, 100, 200]) promptContext(input, env, plus(T0, m));
+  assert.deepEqual(snapshot(t.dir), before);
+  assert.ok(!fs.existsSync(path.join(t.dir, 'cycles', 'next')));
+});
+
 function runHook(script, stdin, env) {
   return spawnSync(process.execPath, [script], { input: stdin, encoding: 'utf8', env: { ...process.env, ...env } });
 }
@@ -89,7 +112,7 @@ test('래퍼: 훅 JSON 출력과 종료 코드 0', () => {
 });
 
 test('래퍼: 깨진 입력과 허브 오류에도 종료 코드 0, 출력 없음', () => {
-  const { env, t } = setup();
+  const { env, t, proj } = setup();
   for (const script of [START, PROMPT]) {
     const p = runHook(script, '{ 깨짐', env);
     assert.equal(p.status, 0);
@@ -97,7 +120,7 @@ test('래퍼: 깨진 입력과 허브 오류에도 종료 코드 0, 출력 없�
   }
   fs.writeFileSync(path.join(t.dir, 'track.md'), '---\nname: [깨짐\n---\n', 'utf8');
   for (const script of [START, PROMPT]) {
-    const p = runHook(script, JSON.stringify({ session_id: 'z', cwd: t.dir }), env);
+    const p = runHook(script, JSON.stringify({ session_id: 'z', cwd: proj }), env);
     assert.equal(p.status, 0);
     assert.equal(p.stdout, '');
   }

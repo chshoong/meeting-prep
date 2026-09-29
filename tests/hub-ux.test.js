@@ -115,3 +115,16 @@ test('amendLastLog: 이 세션 항목이 없으면 NO_ENTRY', () => {
   const t = hub.addTrack(hubPath, { name: 'T', type: 'project' });
   assert.throws(() => hub.amendLastLog(t.dir, 's', '- x'), err => err.code === 'NO_ENTRY');
 });
+
+test('openCycle: 이미 있는 next/log.md는 덮어쓰지 않음', () => {
+  const { env: e } = env();
+  const { hubPath } = hub.ensureHub(e);
+  const t = hub.addTrack(hubPath, { name: 'T', type: 'project' });
+  const dir = path.join(t.dir, 'cycles', 'next');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'log.md'), '기존 내용', 'utf8');
+  hub.openCycle(t.dir);
+  assert.equal(fs.readFileSync(path.join(dir, 'log.md'), 'utf8'), '기존 내용');
+  assert.deepEqual(hub.findLastLog(t.dir, 's', { create: false }).cycle, 'next');
+});

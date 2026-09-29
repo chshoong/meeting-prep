@@ -265,7 +265,11 @@ export function openCycle(trackDir) {
   if (open) return open;
   const dir = path.join(trackDir, 'cycles', 'next');
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'log.md'), newLogHeader([]), 'utf8');
+  try {
+    fs.writeFileSync(path.join(dir, 'log.md'), newLogHeader([]), { encoding: 'utf8', flag: 'wx' });
+  } catch (e) {
+    if (e.code !== 'EEXIST') throw e;
+  }
   return { name: 'next', dir, closed: false };
 }
 
@@ -347,9 +351,9 @@ function readLog(dir) {
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
 }
 
-export function findLastLog(trackDir, sessionId) {
-  const open = openCycle(trackDir);
-  let last = lastLogEntry(readLog(open.dir), sessionId);
+export function findLastLog(trackDir, sessionId, { create = true } = {}) {
+  const open = create ? openCycle(trackDir) : getCycles(trackDir).open;
+  let last = open ? lastLogEntry(readLog(open.dir), sessionId) : null;
   let lastCycle = last ? open.name : null;
   if (!last) {
     const { previous } = getCycles(trackDir);
@@ -358,7 +362,7 @@ export function findLastLog(trackDir, sessionId) {
       lastCycle = last ? previous.name : null;
     }
   }
-  return { cycle: open.name, last, lastCycle };
+  return { cycle: open?.name ?? null, last, lastCycle };
 }
 
 export function amendLastLog(trackDir, sessionId, body) {
