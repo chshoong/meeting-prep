@@ -67,8 +67,9 @@ export async function render(deckPath, { formats = ['pptx', 'html', 'pdf'], outD
   return { ok: true, errors: [], warnings, outputs };
 }
 
+const real = p => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
 const same = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
-const isMain = process.argv[1] && same(path.resolve(process.argv[1]), fileURLToPath(import.meta.url));
+const isMain = process.argv[1] && same(real(process.argv[1]), real(fileURLToPath(import.meta.url)));
 if (isMain) {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -76,12 +77,13 @@ if (isMain) {
   });
   if (!positionals[0]) {
     console.error('사용법: node render.js <deck.md> [--formats pptx,html,pdf] [--out 폴더]');
-    process.exit(2);
-  }
+    process.exitCode = 2;
+  } else {
   const result = await render(positionals[0], {
     formats: values.formats.split(',').map(s => s.trim()).filter(Boolean),
     outDir: values.out,
   });
   process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-  process.exit(result.ok ? 0 : 1);
+  process.exitCode = result.ok ? 0 : 1;
+  }
 }

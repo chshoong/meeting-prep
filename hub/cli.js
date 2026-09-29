@@ -27,7 +27,7 @@ function readInput(file, cwd) {
 }
 
 const COMMANDS = {
-  init: (v, c) => hub.initHub(v.path ?? hub.getHubPath(c.env) ?? hub.defaultHubPath(), c.env),
+  init: (v, c) => hub.initHub(v.path != null ? path.resolve(c.cwd, v.path) : (hub.getHubPath(c.env) ?? hub.defaultHubPath()), c.env),
   status: (v, c) => hub.status(hub.requireHub(c.env), v.track),
   'knowledge-add': (v, c) => {
     need(v, 'type', 'path');
@@ -86,6 +86,9 @@ const COMMANDS = {
   },
   transcripts: (v, c) => {
     need(v, 'track');
+    if (v['max-chars'] != null && !/^[1-9]\d*$/.test(v['max-chars'])) {
+      throw new hub.HubError('BAD_ARGS', '--max-chars 는 양의 정수여야 합니다');
+    }
     const t = hub.findTrack(hub.requireHub(c.env), v.track);
     const { previous } = hub.getCycles(t.dir);
     const since = v.since ?? (previous ? previous.name.slice(0, 10) : hub.localDate(new Date(Date.now() - 14 * 864e5)));
@@ -99,7 +102,7 @@ const COMMANDS = {
 
 export async function run(argv, { env = process.env, cwd = process.cwd() } = {}) {
   const [command, ...rest] = argv;
-  const fn = COMMANDS[command];
+  const fn = Object.hasOwn(COMMANDS, command) ? COMMANDS[command] : null;
   if (!fn) {
     return { code: 1, output: { ok: false, code: 'UNKNOWN_COMMAND', error: `알 수 없는 명령입니다: ${command ?? '(없음)'}. 가능한 명령: ${Object.keys(COMMANDS).join(', ')}` } };
   }
@@ -107,20 +110,21 @@ export async function run(argv, { env = process.env, cwd = process.cwd() } = {})
   try {
     ({ values } = parseArgs({ args: rest, options: OPTIONS, strict: true }));
   } catch (e) {
-    return { code: 1, output: { ok: false, code: 'BAD_ARGS', error: e.message } };
+    return { code: 1, output: { ok: false, code: 'BAD_ARGS', error: e?.message ?? String(e) } };
   }
   try {
     const result = await fn(values, { env, cwd });
-    return { code: 0, output: { ok: true, ...result } };
+    return { code: 0, output: { ...result, ok: true } };
   } catch (e) {
-    return { code: 1, output: { ok: false, code: e.code ?? 'ERROR', error: e.message } };
+    return { code: 1, output: { ok: false, code: e?.code ?? 'ERROR', error: e?.message ?? String(e) } };
   }
 }
 
+const real = p => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
 const same = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
-const isMain = process.argv[1] && same(path.resolve(process.argv[1]), fileURLToPath(import.meta.url));
+const isMain = process.argv[1] && same(real(process.argv[1]), real(fileURLToPath(import.meta.url)));
 if (isMain) {
   const { code, output } = await run(process.argv.slice(2));
   process.stdout.write(JSON.stringify(output, null, 2) + '\n');
-  process.exit(code);
+  process.exitCode = code;
 }

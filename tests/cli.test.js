@@ -105,7 +105,7 @@ test('last-log는 사이클 경계를 넘어 이전 사이클을 확인한다', 
   await run(['log-append', '--track', '논문A', '--session', 's', '--file', entry], { env });
   const fb = path.join(root, 'fb.md');
   fs.writeFileSync(fb, '# 피드백\n', 'utf8');
-  const c =await run(['feedback-close', '--track', '논문A', '--file', fb], { env });
+  const c = await run(['feedback-close', '--track', '논문A', '--file', fb], { env });
   const last = await run(['last-log', '--track', '논문A', '--session', 's'], { env });
   assert.equal(last.output.last.sessionId, 's');
   assert.equal(last.output.lastCycle, c.output.closed);
@@ -113,4 +113,44 @@ test('last-log는 사이클 경계를 넘어 이전 사이클을 확인한다', 
   const none = await run(['last-log', '--track', '논문A', '--session', 'zzz'], { env });
   assert.equal(none.output.last, null);
   assert.equal(none.output.lastCycle, null);
+});
+
+test('상속된 이름은 알 수 없는 명령, 잘못된 --max-chars는 BAD_ARGS', async () => {
+  const { env, hubPath, root } = ctx();
+  for (const name of ['constructor', 'toString']) {
+    const r = await run([name], { env });
+    assert.equal(r.code, 1);
+    assert.equal(r.output.code, 'UNKNOWN_COMMAND');
+  }
+  await run(['init', '--path', hubPath], { env });
+  await run(['track-add', '--name', 'T', '--type', 'project', '--source', root], { env });
+  for (const bad of ['abc', '0', '-5', '1.5']) {
+    const r = await run(['transcripts', '--track', 'T', '--max-chars=' + bad], { env });
+    assert.equal(r.output.code, 'BAD_ARGS', bad);
+  }
+});
+
+test('실제 프로세스: 100KB가 넘는 JSON도 잘리지 않고 출력됨', () => {
+  const { root, hubPath } = ctx();
+  const tdir = path.join(root, 'transcripts');
+  const env = { MEETING_PREP_CONFIG: path.join(root, 'config.json'), MEETING_PREP_TRANSCRIPTS_DIR: tdir };
+  const spawn = args => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', env: { ...process.env, ...env }, maxBuffer: 64 * 1024 * 1024 });
+  assert.equal(spawn(['init', '--path', hubPath]).status, 0);
+  const src = path.join(root, '프로젝트');
+  assert.equal(spawn(['track-add', '--name', 'T', '--type', 'project', '--source', src]).status, 0);
+  fs.mkdirSync(path.join(tdir, 'p'), { recursive: true });
+  const lines = [];
+  for (let i = 0; i < 150; i++) {
+    const ts = new Date(Date.UTC(2026, 9, 1, 0, i)).toISOString();
+    lines.push(JSON.stringify({
+      type: 'user', cwd: src, sessionId: 'big', timestamp: ts,
+      message: { content: '가나다라마바사'.repeat(300) },
+    }));
+  }
+  fs.writeFileSync(path.join(tdir, 'p', 'big.jsonl'), lines.join('\n') + '\n', 'utf8');
+  const p = spawn(['transcripts', '--track', 'T', '--since', '2026-01-01', '--max-chars', '200000']);
+  assert.equal(p.status, 0, p.stderr);
+  const out = JSON.parse(p.stdout);
+  assert.equal(out.ok, true);
+  assert.ok(out.digest.length > 100000, String(out.digest.length));
 });
