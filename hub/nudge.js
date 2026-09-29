@@ -13,7 +13,16 @@ export function nudgeFile(hubPath) {
 export function readNudges(hubPath) {
   try {
     const s = JSON.parse(fs.readFileSync(nudgeFile(hubPath), 'utf8'));
-    if (s && typeof s.sessions === 'object' && s.sessions && !Array.isArray(s.sessions)) return s;
+    if (s && typeof s.sessions === 'object' && s.sessions && !Array.isArray(s.sessions)) {
+      // 깨진 항목(null, 배열 등)은 제거
+      const cleaned = { sessions: {} };
+      for (const [id, e] of Object.entries(s.sessions)) {
+        if (e && typeof e === 'object' && !Array.isArray(e)) {
+          cleaned.sessions[id] = e;
+        }
+      }
+      return cleaned;
+    }
   } catch {
     // 없거나 깨짐
   }
@@ -41,7 +50,7 @@ export function parseLogTimestamp(s) {
 }
 
 function entryFor(state, sessionId, now) {
-  if (!state.sessions[sessionId]) state.sessions[sessionId] = { firstSeen: now.toISOString(), lastNudge: null, snoozeUntil: null };
+  if (!Object.hasOwn(state.sessions, sessionId)) state.sessions[sessionId] = { firstSeen: now.toISOString(), lastNudge: null, snoozeUntil: null };
   return state.sessions[sessionId];
 }
 
@@ -51,11 +60,13 @@ export function recordNudge(hubPath, sessionId, action, { now = new Date(), minu
   const e = entryFor(state, sessionId, now);
   if (action === 'shown') {
     e.lastNudge = now.toISOString();
+    e.snoozeUntil = null;
   } else if (action === 'declined') {
     e.lastNudge = now.toISOString();
     e.snoozeUntil = new Date(now.getTime() + minutes * 60000).toISOString();
   } else {
     e.lastNudge = new Date(now.getTime() - Math.max(0, minutes - LATER_MIN) * 60000).toISOString();
+    e.snoozeUntil = null;
   }
   writeNudges(hubPath, state, now);
   return e;
@@ -63,14 +74,16 @@ export function recordNudge(hubPath, sessionId, action, { now = new Date(), minu
 
 export function checkNudge({ hubPath, sessionId, lastLogAt = null, now = new Date(), minutes = 90 }) {
   const state = readNudges(hubPath);
-  if (!state.sessions[sessionId]) {
+  if (!Object.hasOwn(state.sessions, sessionId)) {
     entryFor(state, sessionId, now);
     writeNudges(hubPath, state, now);
     return { due: false, idleMinutes: 0, isNew: true };
   }
   const e = state.sessions[sessionId];
   // 제안한 적이 있으면 그 시각, 없으면 처음 본 시각이 기준 ('later'는 lastNudge를 과거로 당겨 둔다)
-  const times = [e.lastNudge ?? e.firstSeen].filter(Boolean).map(Date.parse).filter(Number.isFinite);
+  // lastNudge가 파싱 불가능하면 firstSeen을 사용
+  const lastNudgeTime = e.lastNudge && Number.isFinite(Date.parse(e.lastNudge)) ? Date.parse(e.lastNudge) : null;
+  const times = [lastNudgeTime ?? Date.parse(e.firstSeen)].filter(Number.isFinite);
   if (lastLogAt) times.push(lastLogAt.getTime());
   const base = times.length ? Math.max(...times) : now.getTime();
   const idleMinutes = (now.getTime() - base) / 60000;

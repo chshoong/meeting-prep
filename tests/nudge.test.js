@@ -82,3 +82,40 @@ test('parseLogTimestamp: 로컬 시각', () => {
   assert.equal(parseLogTimestamp('2026-09-30 14:05').getTime(), new Date(2026, 8, 30, 14, 5).getTime());
   assert.equal(parseLogTimestamp('엉망'), null);
 });
+
+test('깨진 세션 항목(null, 배열)은 제거하고 recordNudge는 실패하지 않음', () => {
+  const hubPath = tempDir('제안');
+  fs.mkdirSync(path.dirname(nudgeFile(hubPath)), { recursive: true });
+  fs.writeFileSync(nudgeFile(hubPath), JSON.stringify({ sessions: { a: null, b: [1] } }), 'utf8');
+  assert.deepEqual(readNudges(hubPath), { sessions: {} });
+  recordNudge(hubPath, 'x', 'shown', { now: T0 });
+  assert.equal(readNudges(hubPath).sessions.x.firstSeen, T0.toISOString());
+});
+
+test('파싱 불가능한 lastNudge는 firstSeen으로 폴백', () => {
+  const hubPath = tempDir('제안');
+  const state = {
+    sessions: {
+      s: { firstSeen: plus(T0, -100).toISOString(), lastNudge: 'garbage', snoozeUntil: null }
+    }
+  };
+  fs.mkdirSync(path.dirname(nudgeFile(hubPath)), { recursive: true });
+  fs.writeFileSync(nudgeFile(hubPath), JSON.stringify(state), 'utf8');
+  const r = checkNudge({ hubPath, sessionId: 's', lastLogAt: null, now: T0, minutes: 90 });
+  assert.equal(r.due, true);
+});
+
+test('declined 후 later 호출하면 snoozeUntil 해제', () => {
+  const hubPath = tempDir('제안');
+  recordNudge(hubPath, 's', 'declined', { now: T0, minutes: 90 });
+  assert.equal(checkNudge({ hubPath, sessionId: 's', lastLogAt: null, now: plus(T0, 5), minutes: 90 }).due, false);
+  recordNudge(hubPath, 's', 'later', { now: plus(T0, 5), minutes: 90 });
+  assert.equal(checkNudge({ hubPath, sessionId: 's', lastLogAt: null, now: plus(T0, 26), minutes: 90 }).due, true);
+});
+
+test("'constructor' 같은 특수한 세션 id도 작동", () => {
+  const hubPath = tempDir('제안');
+  const r = checkNudge({ hubPath, sessionId: 'constructor', lastLogAt: null, now: T0, minutes: 90 });
+  assert.equal(r.isNew, true);
+  assert.equal(readNudges(hubPath).sessions.constructor.firstSeen, T0.toISOString());
+});
