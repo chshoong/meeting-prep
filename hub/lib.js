@@ -270,7 +270,8 @@ export function lastLogEntry(logText, sessionId) {
   const re = /^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) · session (\S+)[ \t]*$/gm;
   let m;
   let last = null;
-  while ((m = re.exec(logText)) !== null) {
+  const text = logText.replace(/\r\n?/g, '\n');
+  while ((m = re.exec(text)) !== null) {
     if (m[2] === sessionId) last = { timestamp: m[1], sessionId: m[2] };
   }
   return last;

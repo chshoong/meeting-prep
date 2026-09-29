@@ -102,6 +102,11 @@ test('appendLog와 lastLogEntry: 세션별 마지막 기록', () => {
   assert.equal(hub.lastLogEntry(text, 'none'), null);
 });
 
+test('lastLogEntry: CRLF 줄바꿈 로그에서도 마지막 기록을 찾음', () => {
+  const text = ['# 로그', '', '## 2026-09-30 14:05 · session abc', '- 첫', '', '## 2026-10-01 09:00 · session abc', '- 둘', ''].join('\r\n');
+  assert.deepEqual(hub.lastLogEntry(text, 'abc'), { timestamp: '2026-10-01 09:00', sessionId: 'abc' });
+});
+
 test('library: 슬러그 중복 시 번호, 제목 목록', () => {
   const { hubPath } = setup();
   const note = '---\ntitle: Attention Sinks\nyear: 2024\n---\n- 핵심: x\n';
