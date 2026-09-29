@@ -143,3 +143,12 @@ test('status: 트랙별 열린 사이클과 직전 사이클', () => {
   assert.equal(s.tracks[0].previous.name, '2026-10-06');
   assert.equal(hub.status(hubPath, '논문A').tracks.length, 1);
 });
+
+test('closeCycle: 잘못된 today는 BAD_DATE, 폴더 이름은 그대로', () => {
+  const { t } = setup();
+  for (const today of ['2026-10-2', '10/02']) {
+    assert.throws(() => hub.closeCycle(t.dir, FEEDBACK, { today }), e => e.code === 'BAD_DATE');
+  }
+  assert.ok(fs.existsSync(path.join(t.dir, 'cycles', 'next')));
+  assert.ok(!fs.existsSync(path.join(t.dir, 'cycles', '2026-10-2')));
+});

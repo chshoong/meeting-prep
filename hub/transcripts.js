@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { isInside } from './lib.js';
+import { isInside, localDate } from './lib.js';
 
 export function transcriptsRoot(env = process.env) {
   return env.MEETING_PREP_TRANSCRIPTS_DIR ?? path.join(os.homedir(), '.claude', 'projects');
@@ -23,7 +23,7 @@ function listDirs(root) {
   }
 }
 
-export function readTranscripts({ root = transcriptsRoot(), since, paths = [], excludeSession = null, maxChars = 60000 } = {}) {
+export function readTranscripts({ root = transcriptsRoot(), since, paths = [], excludeSession = null, maxChars = 20000 } = {}) {
   const empty = { sessions: [], digest: '', truncated: false, skippedFiles: 0 };
   paths = Array.isArray(paths) ? paths.filter(p => typeof p === 'string' && p) : [];
   const dirs = listDirs(root);
@@ -69,20 +69,29 @@ export function readTranscripts({ root = transcriptsRoot(), since, paths = [], e
     .map(s => ({ ...s, messages: s.messages.sort((a, b) => a.ts.localeCompare(b.ts)) }))
     .sort((a, b) => a.messages[0].ts.localeCompare(b.messages[0].ts));
 
-  let digest = '';
+  // 최신부터 예산을 쓰고, 출력은 시간순
+  const pad = n => String(n).padStart(2, '0');
+  const stamp = ts => { const d = new Date(ts); return `${localDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  let used = 0;
   let truncated = false;
-  outer: for (const s of list) {
+  const kept = [];
+  for (const s of [...list].reverse()) {
     const head = `### session ${s.sessionId} (${s.cwd})\n`;
-    if (digest.length + head.length > maxChars) { truncated = true; break; }
-    digest += head;
-    for (const m of s.messages) {
+    if (used + head.length > maxChars) { truncated = true; break; }
+    used += head.length;
+    const lines = [];
+    for (const m of [...s.messages].reverse()) {
       const body = m.text.length > 2000 ? `${m.text.slice(0, 2000)} …` : m.text;
-      const line = `[${m.ts.slice(0, 16).replace('T', ' ')}] ${m.role === 'user' ? '사용자' : 'Claude'}: ${body}\n`;
-      if (digest.length + line.length > maxChars) { truncated = true; break outer; }
-      digest += line;
+      const line = `[${stamp(m.ts)}] ${m.role === 'user' ? '사용자' : 'Claude'}: ${body}\n`;
+      if (used + line.length > maxChars) { truncated = true; break; }
+      used += line.length;
+      lines.unshift(line);
     }
-    digest += '\n';
+    if (lines.length) kept.unshift(head + lines.join('') + '\n');
+    else used -= head.length;
+    if (truncated) break;
   }
+  const digest = kept.join('');
   return {
     sessions: list.map(s => ({ sessionId: s.sessionId, cwd: s.cwd, count: s.messages.length })),
     digest: digest.trim(),

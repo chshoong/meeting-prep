@@ -94,7 +94,7 @@ const COMMANDS = {
     const since = v.since ?? (previous ? previous.name.slice(0, 10) : hub.localDate(new Date(Date.now() - 14 * 864e5)));
     const r = readTranscripts({
       root: transcriptsRoot(c.env), since, paths: t.sources, excludeSession: v.exclude ?? null,
-      maxChars: v['max-chars'] ? Number(v['max-chars']) : 60000,
+      maxChars: v['max-chars'] ? Number(v['max-chars']) : 20000,
     });
     return { since, ...r };
   },

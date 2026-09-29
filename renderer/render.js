@@ -71,19 +71,25 @@ const real = p => { try { return fs.realpathSync(p); } catch { return path.resol
 const same = (a, b) => process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 const isMain = process.argv[1] && same(real(process.argv[1]), real(fileURLToPath(import.meta.url)));
 if (isMain) {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: { formats: { type: 'string', default: 'pptx,html,pdf' }, out: { type: 'string' } },
-  });
-  if (!positionals[0]) {
-    console.error('사용법: node render.js <deck.md> [--formats pptx,html,pdf] [--out 폴더]');
-    process.exitCode = 2;
-  } else {
-  const result = await render(positionals[0], {
-    formats: values.formats.split(',').map(s => s.trim()).filter(Boolean),
-    outDir: values.out,
-  });
-  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-  process.exitCode = result.ok ? 0 : 1;
+  try {
+    const { values, positionals } = parseArgs({
+      allowPositionals: true,
+      options: { formats: { type: 'string', default: 'pptx,html,pdf' }, out: { type: 'string' } },
+    });
+    if (!positionals[0]) {
+      console.error('사용법: node render.js <deck.md> [--formats pptx,html,pdf] [--out 폴더]');
+      process.exitCode = 2;
+    } else {
+      const result = await render(positionals[0], {
+        formats: values.formats.split(',').map(s => s.trim()).filter(Boolean),
+        outDir: values.out,
+      });
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      process.exitCode = result.ok ? 0 : 1;
+    }
+  } catch (e) {
+    const result = { ok: false, errors: [{ slide: null, line: null, message: e.message }], warnings: [], outputs: {} };
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    process.exitCode = 1;
   }
 }

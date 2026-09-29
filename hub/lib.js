@@ -43,6 +43,15 @@ export function splitFrontmatter(text) {
   return { data: load(m[1]) ?? {}, body: m[2] };
 }
 
+export function readFrontmatter(file) {
+  try {
+    return splitFrontmatter(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    if (e instanceof HubError || e?.code === 'ENOENT') throw e;
+    throw new HubError('BAD_FRONTMATTER', `${file} 머리말(YAML) 형식 오류: ${e.reason ?? e.message}`);
+  }
+}
+
 export function joinFrontmatter(data, body) {
   return `---\n${dump(data, { lineWidth: -1 })}---\n${body}`;
 }
@@ -101,7 +110,7 @@ export function safeName(name) {
 // ---------- 지식 소스 ----------
 
 export function readKnowledge(hubPath) {
-  const { data } = splitFrontmatter(fs.readFileSync(path.join(hubPath, 'hub.md'), 'utf8'));
+  const { data } = readFrontmatter(path.join(hubPath, 'hub.md'));
   const list = Array.isArray(data.knowledge) ? data.knowledge : [];
   return list.map(k => ({ type: k.type, path: k.path, exists: fs.existsSync(k.path) }));
 }
@@ -112,7 +121,7 @@ export function addKnowledge(hubPath, { type, path: p }) {
   const abs = path.resolve(p);
   if (!fs.existsSync(abs)) throw new HubError('NOT_FOUND', `폴더가 없습니다: ${abs}`);
   const file = path.join(hubPath, 'hub.md');
-  const { data, body } = splitFrontmatter(fs.readFileSync(file, 'utf8'));
+  const { data, body } = readFrontmatter(file);
   data.knowledge = Array.isArray(data.knowledge) ? data.knowledge : [];
   if (!data.knowledge.some(k => samePath(k.path, abs))) data.knowledge.push({ type, path: abs });
   fs.writeFileSync(file, joinFrontmatter(data, body), 'utf8');
@@ -136,7 +145,7 @@ export function listTracks(hubPath) {
       const tdir = path.join(dir, e.name);
       const file = path.join(tdir, 'track.md');
       if (!fs.existsSync(file)) continue;
-      const { data } = splitFrontmatter(fs.readFileSync(file, 'utf8'));
+      const { data } = readFrontmatter(file);
       out.push({
         name: String(data.name ?? e.name),
         type,
@@ -253,6 +262,7 @@ export function parseTodos(feedbackText) {
 }
 
 export function closeCycle(trackDir, feedbackText, { today = localDate() } = {}) {
+  if (!DATE_RE.test(String(today))) throw new HubError('BAD_DATE', '날짜는 YYYY-MM-DD 형식이어야 합니다');
   let open = openCycle(trackDir);
   if (open.name === 'next') open = renameOpen(trackDir, open, uniqueCycleName(trackDir, today));
   const text = feedbackText.replace(/^\uFEFF/, '');

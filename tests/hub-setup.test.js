@@ -129,3 +129,17 @@ test('윈도우에서는 대소문자가 달라도 같은 경로', { skip: proce
   assert.ok(hub.isInside('C:\\USERS\\x\\proj\\src', 'c:/users/x/proj'));
   assert.ok(hub.samePath('C:\\a\\B\\', 'c:\\a\\b'));
 });
+
+test('깨진 머리말은 BAD_FRONTMATTER (파일 경로 포함)', () => {
+  const { env, hubPath, root } = freshEnv();
+  hub.initHub(hubPath, env);
+  const t = hub.addTrack(hubPath, { name: 'T', type: 'research', sources: [] });
+  const trackMd = path.join(t.dir, 'track.md');
+  fs.writeFileSync(trackMd, '---\nname: T\nsources: ["C:\\Users\\x"]\n---\n본문\n', 'utf8');
+  assert.throws(() => hub.status(hubPath), e => e.code === 'BAD_FRONTMATTER' && e.message.includes(trackMd));
+  fs.writeFileSync(trackMd, '---\nname: T\n---\n본문\n', 'utf8');
+  const hubMd = path.join(hubPath, 'hub.md');
+  fs.writeFileSync(hubMd, '---\nknowledge:\n\t- x\n---\n', 'utf8');
+  assert.throws(() => hub.readKnowledge(hubPath), e => e.code === 'BAD_FRONTMATTER' && e.message.includes(hubMd));
+  assert.throws(() => hub.status(hubPath), e => e.code === 'BAD_FRONTMATTER');
+});

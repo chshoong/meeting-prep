@@ -40,7 +40,7 @@ export function renderPdf(htmlPath, pdfPath, browser, { timeoutMs = 60000 } = {}
     const timer = setTimeout(() => child.kill(), timeoutMs);
     const cleanup = () => {
       clearTimeout(timer);
-      try { fs.rmSync(profile, { recursive: true, force: true }); } catch { /* 윈도우에서 잠시 잠겨 있을 수 있음 */ }
+      try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* 윈도우에서 잠시 잠겨 있을 수 있음 */ }
     };
     child.on('error', e => { cleanup(); reject(e); });
     child.on('exit', () => {

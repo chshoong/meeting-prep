@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -62,4 +63,10 @@ test('CLI: 소문자 드라이브 문자와 슬래시 경로로 호출해도 실
   assert.equal(p.status, 0, p.stderr);
   const out = JSON.parse(p.stdout);
   assert.equal(out.ok, true);
+});
+
+test('CLI: 없는 deck 경로는 exit 1과 ok:false JSON', () => {
+  const p = spawnSync(process.execPath, [CLI, path.join(os.tmpdir(), 'no-such-dir-xyz', 'deck.md')], { encoding: 'utf8' });
+  assert.equal(p.status, 1);
+  assert.equal(JSON.parse(p.stdout).ok, false);
 });

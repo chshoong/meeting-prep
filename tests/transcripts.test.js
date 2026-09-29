@@ -70,3 +70,38 @@ test('readTranscripts: 기록 폴더가 없으면 빈 결과', () => {
   const r = readTranscripts({ root: path.join(tempDir('없음'), 'nope'), paths: ['C:/x'] });
   assert.deepEqual(r, { sessions: [], digest: '', truncated: false, skippedFiles: 0 });
 });
+
+function multiFixture() {
+  const root = tempDir('기록2');
+  const proj = path.join(root, 'p');
+  const pdir = path.join(root, 'projects', 'x');
+  fs.mkdirSync(pdir, { recursive: true });
+  const u = (sid, ts, text) => JSON.stringify({ type: 'user', cwd: proj, sessionId: sid, timestamp: ts, message: { content: text } });
+  fs.writeFileSync(path.join(pdir, 'a.jsonl'), [
+    u('old', '2026-09-01T00:00:00.000Z', '가장 오래된 메시지'),
+    u('mid', '2026-09-10T00:00:00.000Z', '중간 메시지'),
+    u('new', '2026-09-20T00:00:00.000Z', '가장 최근 메시지'),
+  ].join('\n'), 'utf8');
+  return { root: path.join(root, 'projects'), proj };
+}
+
+test('readTranscripts: 제한이 작으면 최신 세션을 남기고 오래된 것을 버림, 출력은 시간순', () => {
+  const { root, proj } = multiFixture();
+  const one = `### session new (${proj})\n`.length + 60;
+  const r = readTranscripts({ root, paths: [proj], maxChars: one });
+  assert.equal(r.truncated, true);
+  assert.match(r.digest, /가장 최근 메시지/);
+  assert.doesNotMatch(r.digest, /가장 오래된 메시지/);
+  const r2 = readTranscripts({ root, paths: [proj], maxChars: 2 * one });
+  assert.match(r2.digest, /중간 메시지[\s\S]*가장 최근 메시지/);
+  assert.doesNotMatch(r2.digest, /가장 오래된 메시지/);
+});
+
+test('readTranscripts: 다이제스트 시각은 로컬 시간', () => {
+  const { root, proj } = multiFixture();
+  const r = readTranscripts({ root, paths: [proj] });
+  const d = new Date('2026-09-20T00:00:00.000Z');
+  const p = n => String(n).padStart(2, '0');
+  const want = `[${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}]`;
+  assert.ok(r.digest.includes(want), r.digest);
+});
