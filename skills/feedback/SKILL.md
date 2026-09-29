@@ -6,7 +6,8 @@ argument-hint: "[트랙 이름] [붙여넣은 텍스트 | 파일 경로 | 노션
 
 # 미팅 피드백 정리
 
-허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`이다. `ok`가 false면 `error`를 전하고 멈춘다.
+허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`이다. `ok`가 false면 `error`를 전하고 멈춘다. `NO_HUB`면 `/meeting-prep:meeting-init`을 안내한다. 지금 바로 만들지 물어보고, 원하면 meeting-init 절차를 따른다.
+명령이 `Cannot find package` 또는 `ERR_MODULE_NOT_FOUND`로 실패하면 `npm install --omit=dev --prefix "${CLAUDE_PLUGIN_ROOT}"`를 실행한 뒤 다시 시도한다.
 
 ## 1. 트랙 고르기
 
@@ -64,7 +65,7 @@ argument-hint: "[트랙 이름] [붙여넣은 텍스트 | 파일 경로 | 노션
 ## 7. 저장
 
 1. Write 도구로 `<허브>/.tmp/feedback.md`에 쓴다.
-2. `feedback-close --track "<트랙>" --file "<허브>/.tmp/feedback.md"`. 미팅일이 오늘이 아니고 `open.name`이 `next`였다면 `--date <미팅 날짜>`를 붙인다.
+2. `feedback-close --track "<트랙>" --file "<허브>/.tmp/feedback.md"`. 미팅일이 오늘이 아니고 `open.name`이 `next`였다면 `--date <YYYY-MM-DD>`를 붙인다. 사용자가 "10월 2일", "어제" 같이 답하면 YYYY-MM-DD 형식으로 바꿔서 쓴다.
 
 ## 8. 알려주기
 

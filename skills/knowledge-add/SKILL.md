@@ -6,7 +6,8 @@ argument-hint: "[폴더 경로]"
 
 # 지식 소스 추가
 
-허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`이다. `ok`가 false면 `error`를 전하고 멈춘다.
+허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`이다. `ok`가 false면 `error`를 전하고 멈춘다. `NO_HUB`면 `/meeting-prep:meeting-init`을 안내한다. 지금 바로 만들지 물어보고, 원하면 meeting-init 절차를 따른다.
+명령이 `Cannot find package` 또는 `ERR_MODULE_NOT_FOUND`로 실패하면 `npm install --omit=dev --prefix "${CLAUDE_PLUGIN_ROOT}"`를 실행한 뒤 다시 시도한다.
 
 1. **경로**: `$ARGUMENTS`가 있으면 쓰고, 없으면 묻는다.
 2. **형식**: 폴더를 훑어보고 판단한다. 애매할 때만 묻는다.

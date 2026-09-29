@@ -6,7 +6,7 @@ argument-hint: "[research|project|mixed] [주제] [세부 사항]"
 
 # 미팅 자료 만들기
 
-허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`, 렌더러는 `node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js"`이다. CLI 결과의 `ok`가 false면 `error`를 전하고 멈춘다. `deck.md` 작성 규칙은 `${CLAUDE_PLUGIN_ROOT}/skills/meeting/deck-format.md`에 있다. 4단계 전에 반드시 읽는다.
+허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`, 렌더러는 `node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js"`이다. CLI 결과의 `ok`가 false면 `error`를 전하고 멈춘다. `NO_HUB`면 `/meeting-prep:meeting-init`을 안내한다. 지금 바로 만들지 물어보고, 원하면 meeting-init 절차를 따른다. `deck.md` 작성 규칙은 `${CLAUDE_PLUGIN_ROOT}/skills/meeting/deck-format.md`에 있다. 4단계 전에 반드시 읽는다.
 
 이 채팅의 세션 ID: `${CLAUDE_SESSION_ID}`
 

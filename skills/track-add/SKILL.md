@@ -6,7 +6,8 @@ argument-hint: "[트랙 이름]"
 
 # 트랙 추가
 
-허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`이다. `ok`가 false면 `error`를 전하고 멈춘다. `NO_HUB`면 `/meeting-prep:meeting-init`을 먼저 하도록 안내한다.
+허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`이다. `ok`가 false면 `error`를 전하고 멈춘다. `NO_HUB`면 `/meeting-prep:meeting-init`을 먼저 하도록 안내한다. 지금 바로 만들지 물어보고, 원하면 meeting-init 절차를 따른다.
+명령이 `Cannot find package` 또는 `ERR_MODULE_NOT_FOUND`로 실패하면 `npm install --omit=dev --prefix "${CLAUDE_PLUGIN_ROOT}"`를 실행한 뒤 다시 시도한다.
 
 한 번에 하나씩 묻는다. 이미 알 수 있는 것은 묻지 않는다.
 

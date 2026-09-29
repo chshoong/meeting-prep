@@ -6,7 +6,8 @@ argument-hint: "[트랙 이름] [강조할 메모]"
 
 # 작업 로그 남기기
 
-허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`이다. `ok`가 false면 `error`를 전하고 멈춘다. `NO_HUB`면 `/meeting-prep:meeting-init`을 안내한다.
+허브 CLI는 `node "${CLAUDE_PLUGIN_ROOT}/hub/cli.js"`이다. `ok`가 false면 `error`를 전하고 멈춘다. `NO_HUB`면 `/meeting-prep:meeting-init`을 안내한다. 지금 바로 만들지 물어보고, 원하면 meeting-init 절차를 따른다.
+명령이 `Cannot find package` 또는 `ERR_MODULE_NOT_FOUND`로 실패하면 `npm install --omit=dev --prefix "${CLAUDE_PLUGIN_ROOT}"`를 실행한 뒤 다시 시도한다.
 
 이 채팅의 세션 ID: `${CLAUDE_SESSION_ID}`
 
@@ -52,7 +53,8 @@ argument-hint: "[트랙 이름] [강조할 메모]"
 이 채팅에서 읽거나 자세히 논의한 논문이 있을 때만 한다.
 
 `status`의 `knowledge`를 본다.
-- **외부 지식 소스가 하나라도 있으면**: `library/`에 쓰지 않는다. `읽은 논문:` 줄에 제목과 링크만 쓴다. 외부 소스에 그 논문 페이지가 있으면 경로를 함께 적는다.
+- **`exists: true`인 외부 지식 소스가 하나라도 있으면**: `library/`에 쓰지 않는다. `읽은 논문:` 줄에 제목과 링크만 쓴다. 외부 소스에 그 논문 페이지가 있으면 경로를 함께 적는다.
+- 등록된 소스가 모두 `exists: false`이면 그 경로와 `/meeting-prep:knowledge-add`로 다시 등록하라고 사용자에게 알리고, `library/`를 쓴다.
 - **외부 지식 소스가 없으면**: `library-list`로 같은 제목의 노트가 있는지 확인한다. 있으면 그 슬러그를 쓰고, 없으면 새 노트 초안을 만든다.
 
   ```
