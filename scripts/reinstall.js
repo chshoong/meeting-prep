@@ -18,7 +18,7 @@ export function compareVersions(a, b) {
   return 0;
 }
 
-const defaultOnPath = () => spawnSync('claude', ['--version'], { shell: true, stdio: 'ignore' }).status === 0;
+const defaultOnPath = () => spawnSync('claude --version', { shell: true, stdio: 'ignore' }).status === 0;
 
 export function findClaude({ env = process.env, platform = process.platform, exists = fs.existsSync, appData = env.APPDATA, onPath = defaultOnPath } = {}) {
   if (env.CLAUDE_BIN) return exists(env.CLAUDE_BIN) ? env.CLAUDE_BIN : null;
@@ -35,28 +35,40 @@ export function findClaude({ env = process.env, platform = process.platform, exi
   return null;
 }
 
+export function runSteps(claude, steps, { spawn = spawnSync, log = console.log, error = console.error, cwd } = {}) {
+  let uninstalled = false;
+  for (const args of steps) {
+    log(`> claude ${args.join(' ')}`);
+    const r = claude === 'claude'
+      ? spawn(`claude ${args.join(' ')}`, { cwd, stdio: 'inherit', shell: true })
+      : spawn(claude, args, { cwd, stdio: 'inherit' });
+    if (r.error) error(`claude 실행 실패: ${r.error.message}`);
+    const ok = !r.error && r.status === 0;
+    if (args[1] === 'uninstall') { uninstalled = ok; continue; }
+    if (!ok) {
+      if (args[1] === 'install' && uninstalled) error('⚠ 플러그인이 지금 제거된 상태예요. 문제를 해결한 뒤 npm run reinstall 을 다시 실행해주세요.');
+      return r.status || 1;
+    }
+  }
+  log('다시 설치했어요. 새 세션부터 반영됩니다.');
+  return 0;
+}
+
 function main() {
   const claude = findClaude();
   if (!claude) {
-    console.error('claude 실행 파일을 찾지 못했습니다. CLAUDE_BIN 환경 변수로 경로를 지정해주세요.');
+    console.error(process.env.CLAUDE_BIN
+      ? `CLAUDE_BIN 경로에 파일이 없습니다: ${process.env.CLAUDE_BIN}`
+      : 'claude 실행 파일을 찾지 못했습니다. CLAUDE_BIN 환경 변수로 경로를 지정해주세요.');
     process.exitCode = 1;
     return;
   }
   const repo = fileURLToPath(new URL('..', import.meta.url));
-  const steps = [
+  process.exitCode = runSteps(claude, [
     ['plugin', 'marketplace', 'update', MARKETPLACE],
     ['plugin', 'uninstall', PLUGIN],
     ['plugin', 'install', PLUGIN],
-  ];
-  for (const args of steps) {
-    console.log(`> claude ${args.join(' ')}`);
-    const r = spawnSync(claude, args, { cwd: repo, stdio: 'inherit', shell: claude === 'claude' });
-    if (r.status !== 0 && args[1] !== 'uninstall') {
-      process.exitCode = r.status ?? 1;
-      return;
-    }
-  }
-  console.log('다시 설치했어요. 새 세션부터 반영됩니다.');
+  ], { cwd: repo });
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();
