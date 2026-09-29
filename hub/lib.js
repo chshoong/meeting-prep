@@ -19,15 +19,27 @@ export function configPath(env = process.env) {
   return env.MEETING_PREP_CONFIG ?? path.join(os.homedir(), '.meeting-prep', 'config.json');
 }
 
-export function getHubPath(env = process.env) {
-  if (env.MEETING_HUB) return path.resolve(env.MEETING_HUB);
+export function readConfig(env = process.env) {
   try {
     const cfg = JSON.parse(fs.readFileSync(configPath(env), 'utf8'));
-    if (cfg.hubPath) return cfg.hubPath;
+    return cfg && typeof cfg === 'object' && !Array.isArray(cfg) ? cfg : {};
   } catch {
-    // 설정 없음
+    return {};
   }
-  return null;
+}
+
+export function writeConfig(patch, env = process.env) {
+  const next = { ...readConfig(env), ...patch };
+  const file = configPath(env);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(next, null, 2), 'utf8');
+  return next;
+}
+
+export function getHubPath(env = process.env) {
+  if (env.MEETING_HUB) return path.resolve(env.MEETING_HUB);
+  const { hubPath } = readConfig(env);
+  return typeof hubPath === 'string' && hubPath ? hubPath : null;
 }
 
 export function defaultHubPath() {
@@ -72,18 +84,39 @@ export function initHub(hubPath, env = process.env) {
     fs.mkdirSync(path.join(root, d), { recursive: true });
   }
   if (!existed) fs.writeFileSync(hubMd, joinFrontmatter({ knowledge: [] }, HUB_BODY), 'utf8');
-  const cfg = configPath(env);
-  fs.mkdirSync(path.dirname(cfg), { recursive: true });
-  fs.writeFileSync(cfg, JSON.stringify({ hubPath: root }, null, 2), 'utf8');
+  writeConfig({ hubPath: root }, env);
   return { hubPath: root, created: !existed };
 }
 
 export function requireHub(env = process.env) {
   const p = getHubPath(env);
   if (!p || !fs.existsSync(path.join(p, 'hub.md'))) {
-    throw new HubError('NO_HUB', '허브가 없습니다. /meeting-prep:meeting-init 으로 먼저 만들어주세요');
+    throw new HubError('NO_HUB', '허브가 없습니다. 먼저 허브를 만들어야 합니다');
   }
   return p;
+}
+
+export function ensureHub(env = process.env) {
+  const existing = getHubPath(env);
+  if (existing && fs.existsSync(path.join(existing, 'hub.md'))) return { hubPath: existing, createdHub: false };
+  const r = initHub(existing ?? defaultHubPath(), env);
+  return { hubPath: r.hubPath, createdHub: true };
+}
+
+export function moveHub(hubPath, target, env = process.env) {
+  const from = path.resolve(hubPath);
+  const to = path.resolve(target);
+  if (fs.existsSync(to)) throw new HubError('EXISTS', `옮길 위치에 이미 폴더가 있습니다: ${to}`);
+  fs.mkdirSync(path.dirname(to), { recursive: true });
+  try {
+    fs.renameSync(from, to);
+  } catch (e) {
+    if (e?.code !== 'EXDEV') throw e;
+    fs.cpSync(from, to, { recursive: true });
+    fs.rmSync(from, { recursive: true, force: true });
+  }
+  writeConfig({ hubPath: to }, env);
+  return { hubPath: to };
 }
 
 // ---------- 경로 비교 ----------
@@ -184,6 +217,17 @@ export function resolveTrack(hubPath, cwd) {
   return listTracks(hubPath).filter(t => t.sources.some(s => isInside(cwd, s)));
 }
 
+export function addSource(hubPath, trackName, dir) {
+  const t = findTrack(hubPath, trackName);
+  const file = path.join(t.dir, 'track.md');
+  const { data, body } = readFrontmatter(file);
+  const sources = Array.isArray(data.sources) ? data.sources.map(String) : [];
+  const abs = path.resolve(dir);
+  if (!sources.some(s => samePath(s, abs))) sources.push(abs);
+  fs.writeFileSync(file, joinFrontmatter({ ...data, sources }, body), 'utf8');
+  return findTrack(hubPath, trackName);
+}
+
 // ---------- 날짜 ----------
 
 const pad = n => String(n).padStart(2, '0');
@@ -276,8 +320,10 @@ export function closeCycle(trackDir, feedbackText, { today = localDate() } = {})
 
 // ---------- 로그 ----------
 
+const HEADING_RE = /^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) · session (\S+)[ \t]*$/gm;
+
 export function lastLogEntry(logText, sessionId) {
-  const re = /^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) · session (\S+)[ \t]*$/gm;
+  const re = new RegExp(HEADING_RE.source, 'gm');
   let m;
   let last = null;
   const text = logText.replace(/\r\n?/g, '\n');
@@ -293,6 +339,44 @@ export function appendLog(trackDir, entry) {
   const prev = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : newLogHeader([]);
   const sep = prev.endsWith('\n\n') ? '' : prev.endsWith('\n') ? '\n' : '\n\n';
   fs.writeFileSync(file, `${prev}${sep}${entry.trim()}\n`, 'utf8');
+  return { file, cycle: open.name };
+}
+
+function readLog(dir) {
+  const file = path.join(dir, 'log.md');
+  return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+}
+
+export function findLastLog(trackDir, sessionId) {
+  const open = openCycle(trackDir);
+  let last = lastLogEntry(readLog(open.dir), sessionId);
+  let lastCycle = last ? open.name : null;
+  if (!last) {
+    const { previous } = getCycles(trackDir);
+    if (previous) {
+      last = lastLogEntry(readLog(previous.dir), sessionId);
+      lastCycle = last ? previous.name : null;
+    }
+  }
+  return { cycle: open.name, last, lastCycle };
+}
+
+export function amendLastLog(trackDir, sessionId, body) {
+  const open = openCycle(trackDir);
+  const file = path.join(open.dir, 'log.md');
+  const text = readLog(open.dir).replace(/\r\n?/g, '\n');
+  const re = new RegExp(HEADING_RE.source, 'gm');
+  let m;
+  let hit = null;
+  while ((m = re.exec(text)) !== null) {
+    if (m[2] === sessionId) hit = { headEnd: m.index + m[0].length };
+  }
+  if (!hit) throw new HubError('NO_ENTRY', '이 채팅에서 저장한 기록이 이번 사이클에 없습니다');
+  const after = text.slice(hit.headEnd);
+  const next = after.search(/\n## /);
+  const rest = next === -1 ? '' : after.slice(next + 1);
+  const out = `${text.slice(0, hit.headEnd)}\n${String(body).trim()}\n${rest ? `\n${rest}` : ''}`;
+  fs.writeFileSync(file, out, 'utf8');
   return { file, cycle: open.name };
 }
 

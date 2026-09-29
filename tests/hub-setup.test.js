@@ -37,7 +37,7 @@ test('getHubPath: MEETING_HUB 환경 변수가 우선, 설정이 없으면 null'
 
 test('requireHub: 허브가 없으면 NO_HUB', () => {
   const { env } = freshEnv();
-  assert.throws(() => hub.requireHub(env), e => e.code === 'NO_HUB' && /meeting-init/.test(e.message));
+  assert.throws(() => hub.requireHub(env), e => e.code === 'NO_HUB');
 });
 
 test('addKnowledge: 형식 검사, 없는 폴더 거부, 중복 방지', () => {
