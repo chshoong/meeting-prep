@@ -35,6 +35,12 @@ argument-hint: "[주제] [세부 사항]"
 - 트랙마다 `status --track "<트랙>"`으로 `open`, `previous`를 얻는다.
 - 미팅 날짜: `open.name`이 날짜면 그것. `next`면 묻지 않고 "날짜 미정"으로 둔다. 사용자가 목차 확인 때 날짜를 알려주면 `set-date --track "<트랙>" --date <YYYY-MM-DD>` 후 `status`를 다시 실행한다.
 
+### 발표자 정보와 이름표
+
+- `config-get --key author`, `config-get --key affiliation`. `value`가 null이면 한 메시지로 이름과 소속을 묻고 `config-set --key author --value "<이름>"`, `config-set --key affiliation --value "<소속>"`으로 저장한다(다음부터 묻지 않는다).
+- 이름표: `status --track`의 트랙 `brand`가 있으면 그것, 없으면 트랙 이름. 트랙에 `logo`가 있으면 `copy-asset`으로 `assets/`에 복사해서 쓴다.
+- 사용자가 "이름표를 연구실 이름으로 바꿔줘", "로고 넣어줘"라고 하면 `track-set --track "<트랙>" --brand "<이름>"` 또는 `--logo "<경로>"`로 저장한다.
+
 ## 3. 재료 모으기 (트랙마다, 이 순서로)
 
 1. **작업 로그**: `open.dir/log.md` 전체
@@ -67,17 +73,25 @@ argument-hint: "[주제] [세부 사항]"
 
 ### 뼈대
 
-1. `title`: 주제, 미팅 종류(예: "주간 연구 미팅"), 날짜
-2. `checklist` **지난 피드백 반영 현황**: `feedback.md`의 할 일마다 한 줄. 로그에 `→ 완료`면 done, `→ 진행 중`이면 doing, 언급이 없으면 todo(note에 이유를 쓰되, 이유를 모르면 `⚠ 확인 필요`)
-3. **본론**: 세부 사항에 전체 분량의 60% 이상을 쓴다. 주제와 관련이 적은 작업은 "기타 진행" `bullets` 한 장으로 모은다.
+1. `title`: `kicker`에 "<트랙> · 주간 <연구|프로젝트> 미팅", `title`에 주제(핵심어 `**강조**`), `question`에 이번 미팅의 질문 한 줄
+2. `checklist` **지난 피드백 반영 현황** (`section: 지난 미팅 피드백`): `feedback.md`의 할 일마다 한 줄. 로그에 `→ 완료`면 done, `→ 진행 중`이면 doing, 없으면 todo(note에 이유, 모르면 `⚠ 확인 필요`)
+3. **본론**: 세부 사항에 분량의 60% 이상. 관련이 적은 작업은 "기타 진행" `bullets` 한 장.
 4. `bullets` **다음 계획**
-5. `bullets` **논의할 점 / 여쭤볼 것**: 로그의 `막힌 점`과 지적 사항 중 아직 해결 안 된 것
+5. `bullets` **논의할 점 / 여쭤볼 것**
 
-### 본론 구성
+### 슬라이드 고르기 규칙
 
-- **research**: 문제의식 → (필요하면) 관련 연구 → 방법 → 실험 결과(`figure`, `table`) → 해석 → 다음 실험
-- **project**: 마일스톤 대비 진행률(`checklist` 또는 `table`) → 이번 주 완료 항목 → 데모·스크린샷(`figure`) → 이슈와 리스크 → 다음 주 계획
-- **mixed**: 트랙별로 2~5를 반복하고, 슬라이드 제목 앞에 `[트랙 이름]`을 붙인다.
+- 한 장에 메시지 하나. 결과 슬라이드의 `title`은 결론에 가깝게 쓴다("선정 모델이 **테스트 AP**에서 앞섰다").
+- 결과 슬라이드에는 `takeaway`를 반드시 쓴다.
+- 그래프:
+  - 계열 4개 이하 × 항목 12개 이하의 단순 비교 → `chart` (값이 CSV에 있으면 `data`로 직접 연결)
+  - 기준 대비 변화량이 핵심 → `stats`, 또는 `chart` + `kpis`
+  - 분포, 히트맵, 여러 패널, 신뢰구간 음영 → 이미 그린 그림으로 `figure`
+- 과정·방법 → `cards`(`flow: true`), 수치가 많으면 → `table`(선정 모델 행은 `highlight`)
+- 글머리표는 5개 이하, 한 줄 안쪽. 긴 발표(15장 이상)는 `section` 간지로 나눈다.
+- **research**: 문제의식 → (관련 연구) → 방법(`cards`) → 결과(`chart`/`figure`/`table`) → 해석 → 다음 실험
+- **project**: 진행률(`stats` 또는 `checklist`) → 완료 항목 → 데모(`figure`) → 이슈와 리스크 → 다음 주 계획
+- **mixed**: 트랙마다 `section` 간지로 나누고 2~5를 반복한다.
 
 ### 분량
 
@@ -91,15 +105,19 @@ argument-hint: "[주제] [세부 사항]"
 - 그림: 슬라이드에 넣을 파일마다
   `copy-asset --deck-dir "<자료 폴더>" --src "<원본 절대 경로>"`
   를 실행하고, 결과 `rel`(`assets/...`)을 `image`에 쓴다.
+- `deck.md` 맨 앞에 `deck:` 머리말을 쓴다: `brand`(이름표), `logo`(있으면 `assets/...`), `author`, `affiliation`, `date`(미팅 날짜, 미정이면 오늘).
+- CSV로 그릴 차트는 결과 파일을 `copy-asset`으로 `assets/`에 복사하고 `chart.data`에 `assets/...`를 쓴다.
 - Write 도구로 `<자료 폴더>/deck.md`를 쓴다. 이미 있으면 먼저 읽고, 사용자가 직접 고친 부분이 있으면 살린다.
 - `notes`에는 슬라이드마다 교수님께 말로 할 설명을 2~3문장으로 쓴다. 근거가 된 로그 시각도 적어두면 좋다.
 
 ## 6. 만들기
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js" "<자료 폴더>/deck.md" --formats <형식들>
+node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js" "<자료 폴더>/deck.md" --formats pptx,pdf --preview
 ```
 
+- **눈으로 확인**: `outputs.preview`의 PNG를 Read 도구로 모두 본다. 글자 넘침·겹침·잘림, 빈 카드, 너무 작은 차트가 있으면 `deck.md`를 고치고 다시 렌더한다(최대 2회). 확인했으면 사용자에게 "슬라이드 N장을 이미지로 확인했어요"라고 알리고, 미리보기를 못 만들었으면 그렇다고 말한다.
+- **글꼴**: 결과의 `fonts.pretendardInstalled`가 `false`이고 `config-get --key fontNoticeShown`이 `true`가 아니면 한 번 안내한다: "PowerPoint에서도 같은 글꼴로 보려면 Pretendard를 설치하세요(https://github.com/orioncactus/pretendard/releases). 설치 전에는 맑은 고딕으로 보여요. PDF는 그대로 Pretendard예요." 안내한 뒤 `config-set --key fontNoticeShown --value true`.
 - `ok`가 false면 `errors`의 `slide`와 `line`을 보고 `deck.md`를 고쳐 다시 실행한다. 3번까지 시도하고, 그래도 안 되면 오류를 보여준다.
 - `warnings`는 모두 사용자에게 전한다.
   - 넘침 경고가 있으면 그 슬라이드를 나누거나 줄일지 묻는다.
@@ -110,7 +128,7 @@ node "${CLAUDE_PLUGIN_ROOT}/renderer/render.js" "<자료 폴더>/deck.md" --form
 
 ## 7. 알려주기
 
-- 만든 파일 경로(`outputs`)
+- 만든 파일 경로(`outputs`)와 `preview/` 폴더의 슬라이드 이미지
 - `⚠ 확인 필요` 목록 (슬라이드 번호와 내용)
 - "고칠 부분을 말씀해주시면 deck.md를 고쳐서 다시 만들어요. PowerPoint에서 직접 고친 파일은 덮어쓰지 않아요."
 
