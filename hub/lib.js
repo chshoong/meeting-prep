@@ -186,6 +186,8 @@ export function listTracks(hubPath) {
         type,
         dir: tdir,
         sources: Array.isArray(data.sources) ? data.sources.map(String) : [],
+        ...(data.brand ? { brand: String(data.brand) } : {}),
+        ...(data.logo ? { logo: String(data.logo) } : {}),
       });
     }
   }
@@ -227,6 +229,21 @@ export function addSource(hubPath, trackName, dir) {
   const abs = path.resolve(dir);
   if (!sources.some(s => samePath(s, abs))) sources.push(abs);
   fs.writeFileSync(file, joinFrontmatter({ ...data, sources }, body), 'utf8');
+  return findTrack(hubPath, trackName);
+}
+
+export function setTrackBrand(hubPath, trackName, { brand, logo } = {}) {
+  const t = findTrack(hubPath, trackName);
+  const file = path.join(t.dir, 'track.md');
+  const { data, body } = readFrontmatter(file);
+  const next = { ...data };
+  if (brand != null) next.brand = String(brand);
+  if (logo != null) {
+    const abs = path.resolve(logo);
+    if (!fs.existsSync(abs)) throw new HubError('NOT_FOUND', `로고 파일이 없습니다: ${abs}`);
+    next.logo = abs;
+  }
+  fs.writeFileSync(file, joinFrontmatter(next, body), 'utf8');
   return findTrack(hubPath, trackName);
 }
 

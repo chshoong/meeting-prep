@@ -200,3 +200,28 @@ test('nudge와 log-amend', async () => {
   assert.doesNotMatch(text, /틀림/);
   assert.equal((await run(['log-amend', '--track', 'T', '--session', 'other', '--file', entry], { env })).output.code, 'NO_ENTRY');
 });
+
+test('config-set / config-get: 허용 키와 형식', async () => {
+  const { env } = ctx();
+  assert.equal((await run(['config-set', '--key', 'author', '--value', '홍길동'], { env })).code, 0);
+  assert.deepEqual((await run(['config-get', '--key', 'author'], { env })).output.value, '홍길동');
+  assert.equal((await run(['config-set', '--key', 'fontNoticeShown', '--value', 'true'], { env })).output.config.fontNoticeShown, true);
+  assert.equal((await run(['config-set', '--key', 'nudgeMinutes', '--value', '45'], { env })).output.config.nudgeMinutes, 45);
+  assert.equal((await run(['config-set', '--key', 'nudgeMinutes', '--value', '0'], { env })).output.code, 'BAD_ARGS');
+  assert.equal((await run(['config-set', '--key', 'hubPath', '--value', 'x'], { env })).output.code, 'BAD_ARGS');
+  assert.equal((await run(['config-get', '--key', 'affiliation'], { env })).output.value, null);
+});
+
+test('track-set: 이름표와 로고, status에 반영', async () => {
+  const { env, hubPath, root } = ctx();
+  await run(['init', '--path', hubPath], { env });
+  await run(['track-add', '--name', 'KAMP', '--type', 'project'], { env });
+  const logo = path.join(root, '로고.png');
+  fs.writeFileSync(logo, 'png');
+  const r = await run(['track-set', '--track', 'KAMP', '--brand', 'YD3SL', '--logo', logo], { env });
+  assert.equal(r.output.brand, 'YD3SL');
+  assert.equal(r.output.logo, logo);
+  const st = await run(['status', '--track', 'KAMP'], { env });
+  assert.equal(st.output.tracks[0].brand, 'YD3SL');
+  assert.equal((await run(['track-set', '--track', 'KAMP', '--logo', path.join(root, '없음.png')], { env })).output.code, 'NOT_FOUND');
+});

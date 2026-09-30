@@ -14,6 +14,7 @@ const OPTIONS = {
   session: { type: 'string' }, file: { type: 'string' }, slug: { type: 'string' },
   'deck-dir': { type: 'string' }, src: { type: 'string' }, action: { type: 'string' },
   since: { type: 'string' }, exclude: { type: 'string' }, 'max-chars': { type: 'string' },
+  key: { type: 'string' }, value: { type: 'string' }, brand: { type: 'string' }, logo: { type: 'string' },
 };
 
 function need(v, ...keys) {
@@ -27,8 +28,43 @@ function readInput(file, cwd) {
   return raw.replace(/^\uFEFF/, '');
 }
 
+const CONFIG_KEYS = {
+  author: v => v,
+  affiliation: v => v,
+  nudgeMinutes: v => {
+    if (!/^[1-9]\d*$/.test(v)) throw new hub.HubError('BAD_ARGS', 'nudgeMinutes는 양의 정수여야 합니다');
+    return Number(v);
+  },
+  fontNoticeShown: v => {
+    if (v !== 'true' && v !== 'false') throw new hub.HubError('BAD_ARGS', 'fontNoticeShown은 true 또는 false여야 합니다');
+    return v === 'true';
+  },
+};
+
+function configKey(k) {
+  if (!Object.hasOwn(CONFIG_KEYS, k)) throw new hub.HubError('BAD_ARGS', `설정할 수 있는 키: ${Object.keys(CONFIG_KEYS).join(', ')}`);
+  return CONFIG_KEYS[k];
+}
+
 const COMMANDS = {
   init: (v, c) => hub.initHub(v.path != null ? path.resolve(c.cwd, v.path) : (hub.getHubPath(c.env) ?? hub.defaultHubPath()), c.env),
+  'config-get': (v, c) => {
+    need(v, 'key');
+    configKey(v.key);
+    const value = hub.readConfig(c.env)[v.key];
+    return { key: v.key, value: value === undefined ? null : value };
+  },
+  'config-set': (v, c) => {
+    need(v, 'key', 'value');
+    const parse = configKey(v.key);
+    return { config: hub.writeConfig({ [v.key]: parse(v.value) }, c.env) };
+  },
+  'track-set': (v, c) => {
+    need(v, 'track');
+    return hub.setTrackBrand(hub.requireHub(c.env), v.track, {
+      brand: v.brand, logo: v.logo != null ? path.resolve(c.cwd, v.logo) : undefined,
+    });
+  },
   status: (v, c) => hub.status(hub.requireHub(c.env), v.track),
   'knowledge-add': (v, c) => {
     need(v, 'type', 'path');
