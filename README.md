@@ -54,8 +54,13 @@ claude plugin install meeting-prep@meeting-prep-local
 ## 렌더러만 쓰기
 
 ```
-node renderer/render.js <deck.md> --formats pptx,pdf
+node renderer/render.js <deck.md> --formats pptx,pdf --preview
 ```
+
+- 슬라이드 레이아웃 10종(표지, 간지, 차트, 수치 카드, 단계 카드, 그림, 표, 피드백 현황, 비교, 글머리표)
+- 단순 비교는 PowerPoint 기본 차트로 그려서 PowerPoint에서 바로 고칠 수 있어요.
+- `--preview`를 붙이면 `preview/slide-01.png`처럼 슬라이드 이미지를 만들어요.
+- PowerPoint에서도 같은 글꼴로 보려면 [Pretendard](https://github.com/orioncactus/pretendard/releases)를 설치하세요.
 
 `deck.md` 형식은 `skills/meeting/deck-format.md`를 보세요.
 
