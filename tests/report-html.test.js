@@ -71,3 +71,18 @@ test('강조판: 이번 미팅 탭, NEW/변경 표시, 탭 점', () => {
   const changed = build({ highlight: { cycle: '2026-10-06', newKeys: new Set(), meetingHtml: '' } });
   assert.match(changed.html, /<span class="badge changed">변경<\/span>/);
 });
+
+test('섹션 앵커는 제목 앞부분이 같아도 겹치지 않고, 이동 링크는 자기 섹션을 가리킨다', () => {
+  const sec = title => ({ title, kicker: '', cycle: '2026-10-06', archived: false, line: 1, components: [] });
+  const report = {
+    meta: { kicker: '', title: '보고서', subtitle: '', pills: [] },
+    datasets: {},
+    tabs: [{ id: 'results-long-tab-id', title: '결과', line: 1, sections: [sec('실험 1 결과'), sec('실험 2 결과')] }],
+  };
+  const r = renderReportHtml(report, { datasets: {}, baseDir: '.', highlight: { cycle: '2026-10-06', newKeys: new Set(), meetingHtml: '' } });
+  const ids = [...r.html.matchAll(/<section class="sec" id="([^"]+)"/g)].map(m => m[1]);
+  assert.equal(ids.length, 2);
+  assert.notEqual(ids[0], ids[1]);
+  const jumps = [...r.html.matchAll(/data-jump="results-long-tab-id#([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(jumps, ids);
+});

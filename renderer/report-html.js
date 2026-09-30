@@ -8,7 +8,6 @@ import { runtimeMain } from './report-runtime.js';
 import { renderComponent, inlineHtml } from './report-components.js';
 
 export const sectionKey = (tabId, title) => `${tabId}/${title}`;
-const slug = key => `s-${Buffer.from(key).toString('hex').slice(0, 24)}`;
 const pad2 = n => String(n).padStart(2, '0');
 
 function css() {
@@ -98,7 +97,7 @@ body.preview .tabs { position: static; }
 @media print { .tabs, .tbl-search, .cmp-actions, .next { display: none; } [data-tab-panel] { display: block !important; } [hidden] { display: block !important; } body { background: #fff; } }`;
 }
 
-function renderSection(tab, s, ctx, out, badge) {
+function renderSection(tab, s, ctx, out, badge, idOf) {
   const key = sectionKey(tab.id, s.title);
   const parts = [];
   for (const c of s.components) {
@@ -112,12 +111,14 @@ function renderSection(tab, s, ctx, out, badge) {
     }
   }
   const b = badge ? `<span class="badge ${badge === 'new' ? 'new' : 'changed'}">${badge === 'new' ? 'NEW' : '변경'}</span>` : '';
-  return `<section class="sec" id="${slug(key)}">${s.kicker ? `<div class="kicker">${esc(s.kicker)}</div>` : ''}<h2>${inlineHtml(s.title)}${b}</h2>${parts.join('')}</section>`;
+  return `<section class="sec" id="${idOf(key)}">${s.kicker ? `<div class="kicker">${esc(s.kicker)}</div>` : ''}<h2>${inlineHtml(s.title)}${b}</h2>${parts.join('')}</section>`;
 }
 
 export function renderReportHtml(report, { datasets, baseDir, highlight } = {}) {
   const out = { errors: [], warnings: [], sections: [] };
   let n = 0;
+  const ids = new Map();
+  const idOf = key => { if (!ids.has(key)) ids.set(key, `s-${ids.size + 1}`); return ids.get(key); };
   const ctx = { datasets, baseDir, nextId: () => `mpc${++n}` };
   const badgeOf = (tab, s) => {
     if (!highlight || s.cycle !== highlight.cycle) return null;
@@ -127,8 +128,8 @@ export function renderReportHtml(report, { datasets, baseDir, highlight } = {}) 
   const tabs = report.tabs.map((tab, i) => {
     const live = tab.sections.filter(s => !s.archived);
     const old = tab.sections.filter(s => s.archived);
-    const body = live.map(s => { out.sections.push(sectionKey(tab.id, s.title)); const b = badgeOf(tab, s); if (b) changed.push({ tab, s, b }); return renderSection(tab, s, ctx, out, b); }).join('')
-      + (old.length ? `<details class="archive"><summary>이전 결과 (${old.length})</summary>${old.map(s => { out.sections.push(sectionKey(tab.id, s.title)); return renderSection(tab, s, ctx, out, null); }).join('')}</details>` : '');
+    const body = live.map(s => { out.sections.push(sectionKey(tab.id, s.title)); const b = badgeOf(tab, s); if (b) changed.push({ tab, s, b }); return renderSection(tab, s, ctx, out, b, idOf); }).join('')
+      + (old.length ? `<details class="archive"><summary>이전 결과 (${old.length})</summary>${old.map(s => { out.sections.push(sectionKey(tab.id, s.title)); return renderSection(tab, s, ctx, out, null, idOf); }).join('')}</details>` : '');
     const nextTab = report.tabs[i + 1];
     const next = nextTab ? `<button type="button" class="next" data-go="${esc(nextTab.id)}">${esc(nextTab.title)} 보기 →</button>` : '';
     return { tab, html: `<div class="panel" data-tab-panel="${esc(tab.id)}" hidden>${body}${next}</div>`, dot: live.some(s => badgeOf(tab, s)) };
@@ -137,7 +138,7 @@ export function renderReportHtml(report, { datasets, baseDir, highlight } = {}) 
   let meeting = null;
   if (highlight) {
     const listHtml = changed.length
-      ? `<ul class="meeting-list">${changed.map(({ tab, s, b }) => `<li><a href="#" data-jump="${esc(tab.id)}#${slug(sectionKey(tab.id, s.title))}">${esc(tab.title)} · ${inlineHtml(s.title)}</a> <span class="badge ${b === 'new' ? 'new' : 'changed'}">${b === 'new' ? 'NEW' : '변경'}</span></li>`).join('')}</ul>`
+      ? `<ul class="meeting-list">${changed.map(({ tab, s, b }) => `<li><a href="#" data-jump="${esc(tab.id)}#${idOf(sectionKey(tab.id, s.title))}">${esc(tab.title)} · ${inlineHtml(s.title)}</a> <span class="badge ${b === 'new' ? 'new' : 'changed'}">${b === 'new' ? 'NEW' : '변경'}</span></li>`).join('')}</ul>`
       : '<p class="muted">이번 사이클에 바뀐 섹션이 없어요.</p>';
     meeting = `<div class="panel" data-tab-panel="meeting" hidden><section class="sec"><div class="kicker">THIS MEETING · ${esc(highlight.cycle)}</div><h2>이번 미팅</h2>${highlight.meetingHtml || ''}<div class="card"><h3>이번 사이클에 바뀐 부분</h3>${listHtml}</div></section></div>`;
   }
