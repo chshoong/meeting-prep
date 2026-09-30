@@ -95,7 +95,7 @@ const PAINT = {
       valAxisMinVal: sc.min, valAxisMaxVal: sc.max, valAxisMajorUnit: sc.step,
       valGridLine: { color: C.soft, size: 1 }, catGridLine: { style: 'none' },
       showValue: spec.valueLabels, dataLabelFormatCode: spec.decimals ? `0.${'0'.repeat(spec.decimals)}` : '0',
-      dataLabelColor: C.ink, dataLabelFontSize: pt(15), dataLabelFontBold: true,
+      dataLabelColor: C.ink, dataLabelFontSize: pt(spec.valueLabelSize ?? 15), dataLabelFontBold: true,
       ...(spec.yLabel ? { showValAxisTitle: true, valAxisTitle: spec.yLabel, valAxisTitleColor: C.muted, valAxisTitleFontSize: pt(14) } : {}),
       ...(spec.xLabel ? { showCatAxisTitle: true, catAxisTitle: spec.xLabel, catAxisTitleColor: C.muted, catAxisTitleFontSize: pt(14) } : {}),
     };

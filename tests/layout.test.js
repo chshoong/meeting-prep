@@ -164,3 +164,51 @@ test('체크리스트: 아주 긴 항목은 경고', () => {
   const { warnings } = layoutDeck(slides, { brand: '' });
   assert.ok(warnings.some(w => /2줄/.test(w.message)));
 });
+
+import { layoutSlide } from '../renderer/layout.js';
+import { normalizeChart } from '../renderer/chart-data.js';
+import { textWidth } from '../renderer/style.js';
+
+const chartSlide = (spec, kpis = []) => ({ layout: 'chart', index: 1, title: 't', kpis, chartSpec: spec });
+const KP = [{ label: 'a', value: '1' }];
+
+test('묶음 막대 3x6 + KPI: 값 글자를 줄이거나 빼고 경고', () => {
+  const cats = ['가', '나', '다', '라', '마', '바'];
+  const spec = normalizeChart({ type: 'bar', categories: cats, series: ['a', 'b', 'c'].map(n => ({ name: n, values: [0.123, 0.456, 0.789, 0.3, 0.2, 0.1] })) }, '.');
+  const r = layoutSlide(chartSlide(spec, KP), {}, 1);
+  const el = r.elements.find(e => e.kind === 'chart');
+  const barW = ((el.w - 84) / 6) * 0.72 / 3;
+  if (el.spec.valueLabels === false) assert.ok(r.warnings.some(w => w.message.includes('막대가 좁아')));
+  else assert.ok(textWidth('0.79', el.spec.valueLabelSize ?? 15, 700) <= barW - 2 + 1e-6 || textWidth('0.789'.slice(0, 4), el.spec.valueLabelSize ?? 15, 700) <= barW);
+  assert.equal(spec.valueLabels, true, '원본 spec 불변');
+  assert.equal(spec.valueLabelSize, undefined);
+});
+
+test('막대 1x2: 값 표시 15 유지', () => {
+  const spec = normalizeChart({ type: 'bar', categories: ['a', 'b'], series: [{ name: 'x', values: [1, 2] }] }, '.');
+  const el = layoutSlide(chartSlide(spec), {}, 1).elements.find(e => e.kind === 'chart');
+  assert.equal(el.spec.valueLabels, true);
+  assert.ok((el.spec.valueLabelSize ?? 15) === 15);
+});
+
+test('체크리스트 8개: 첫 누락 항목을 알리고 마지막 줄 뒤에 구분선 없음', () => {
+  const items = Array.from({ length: 8 }, (_, i) => ({ text: `항목 ${i + 1}`, status: 'todo' }));
+  const r = layoutSlide({ layout: 'checklist', index: 1, title: 't', items }, {}, 1);
+  const w = r.warnings.find(x => x.message.includes('번 이후 항목을 그리지 못했어요'));
+  assert.ok(w, JSON.stringify(r.warnings));
+  const k = Number(w.message.match(/^(\d+)번/)[1]);
+  const drawn = r.elements.filter(e => e.kind === 'pill').length;
+  assert.equal(k, drawn + 1);
+  const lines = r.elements.filter(e => e.kind === 'line' && e.color === C.soft);
+  assert.equal(lines.length, drawn - 1);
+});
+
+test('표지 긴 제목: 제목 상자가 질문과 겹치지 않거나 경고', () => {
+  const slide = { layout: 'title', index: 1, title: '가나다라마바사아자차카타파하가나다라마바사아자차카타', question: '질문입니다' };
+  const r = layoutSlide(slide, {}, 1);
+  const t = r.elements.find(e => e.kind === 'text' && e.weight === 800 && e.size >= 44 && e.w === 680);
+  const q = r.elements.find(e => e.kind === 'text' && e.y === 360);
+  assert.ok(t.size >= 44 && t.size <= 60);
+  assert.ok(t.y + t.h <= q.y || r.warnings.length > 0);
+  assert.ok(t.size < 60, '줄여야 함');
+});

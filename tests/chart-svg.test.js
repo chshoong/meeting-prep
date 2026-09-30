@@ -80,3 +80,11 @@ test('좌표는 소수 둘째 자리까지', () => {
   const sc = normalizeChart({ type: 'scatter', points: [{ x: 0.41, y: 0.35 }, { x: 0.463, y: 0.437, highlight: true }] }, '.');
   for (const s of [bar, hb, ln, sc]) assert.ok(!noisy.test(chartSvg(s, 700, 263).replace(/>[^<]*</g, '><')), s.type); // text labels may legitimately show 3 decimals
 });
+
+test('가로 막대: 긴 항목 이름이 왼쪽에서 잘리지 않음', () => {
+  const s = normalizeChart({ type: 'hbar', categories: ['CN7 도어트림', 'SP2 크래시패드'], series: [{ name: 'x', values: [1, 2] }] }, '.');
+  const svg = chartSvg(s, 700, 260);
+  const labels = [...svg.matchAll(/<text x="([\d.]+)"[^>]*text-anchor="end"[^>]*font-weight="700"[^>]*>([^<]+)</g)];
+  assert.ok(labels.length >= 2);
+  for (const [, x, t] of labels) assert.ok(Number(x) - textWidth(t, 14, 700) >= 0, `${t} 잘림`);
+});

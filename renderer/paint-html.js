@@ -90,6 +90,7 @@ body { font-family: '${FONT.face}', '${FONT.fallback}', sans-serif; color: #${C.
 .t p.li::before { content: '•'; position: absolute; left: -22px; color: #A0A8BA; }
 .pill { display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .tbl { border-collapse: collapse; table-layout: fixed; }
+.tbl th, .tbl td { word-break: keep-all; }
 .tbl th { text-align: left; color: #${C.muted}; font-weight: 700; padding: 0 18px; border-bottom: 1.5px solid #${C.line}; }
 .tbl td { padding: 0 18px; border-bottom: 1px solid #${C.soft}; }
 .tbl tr:last-child td { border-bottom: 0; }

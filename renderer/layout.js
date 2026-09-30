@@ -157,7 +157,10 @@ const LAYOUT = {
     els.push({ kind: 'rect', x: 0, y: 0, w: W, h: FRAME.topBar, fill: C.primary });
     els.push({ kind: 'rect', x: 0, y: H - FRAME.bottomBar, w: W, h: FRAME.bottomBar, fill: C.primary });
     if (slide.kicker) els.push(T({ x: 96, y: 120, w: 680, h: 26, paras: [{ runs: [{ text: slide.kicker }] }], size: SIZE.kicker, weight: 700, color: C.faint }));
-    const t = T({ x: 96, y: 164, w: 680, h: 170, paras: one(slide.title, C.accent), size: SIZE.coverTitle, weight: 800, lineHeight: 1.25 });
+    let tSize = SIZE.coverTitle;
+    const mkTitle = size => T({ x: 96, y: 164, w: 680, h: 170, paras: one(slide.title, C.accent), size, weight: 800, lineHeight: 1.25 });
+    let t = mkTitle(tSize);
+    while (tSize > 44 && needHeight(t) > t.h + 1) t = mkTitle(--tSize);
     els.push(t);
     checkFit(t, '표지 제목', ctx);
     if (slide.question) els.push(T({ x: 96, y: 360, w: 680, h: 64, paras: one(slide.question), size: SIZE.question, weight: 500, color: C.muted, lineHeight: 1.6 }));
@@ -200,7 +203,22 @@ const LAYOUT = {
     const bh = b.bottom - b.top;
     const hasK = slide.kpis.length > 0;
     const cw = hasK ? 740 : CW;
-    const spec = slide.chartSpec;
+    let spec = slide.chartSpec;
+    if (spec.type === 'bar' && spec.valueLabels) {
+      const chartW = cw - 32;
+      const barW = ((chartW - 84) / spec.categories.length) * 0.72 / spec.series.length;
+      const widest = Math.max(...spec.series.flatMap(s => s.values.map(v => textWidth(Number(v).toFixed(spec.decimals), 15, 700))));
+      const fitsAt = size => widest * (size / 15) <= barW - 2;
+      if (!fitsAt(15)) {
+        let size = 14;
+        while (size > 11 && !fitsAt(size)) size -= 1;
+        if (fitsAt(size)) spec = { ...spec, valueLabelSize: size };
+        else {
+          spec = { ...spec, valueLabels: false };
+          ctx.warn('막대가 좁아 값 표시를 뺐어요');
+        }
+      }
+    }
     els.push(card(M, b.top, cw, bh));
     if (spec.title) els.push(T({ x: M + 28, y: b.top + 20, w: cw - 56, h: 30, paras: [{ runs: [{ text: spec.title }] }], size: SIZE.cardTitle, weight: 800, valign: 'middle' }));
     const shift = legend(spec, M, cw, b.top, els, ctx);
@@ -285,7 +303,8 @@ const LAYOUT = {
     const headH = 46;
     const rowH = 56;
     const need = headH + rowH * slide.items.length + 16;
-    if (need > b.bottom - b.top) ctx.warn('체크리스트가 넘칠 수 있어요. 항목을 줄이거나 슬라이드를 나눠주세요');
+    const drawn = Math.max(0, Math.min(slide.items.length, Math.floor((b.bottom - b.top - 8 - headH) / rowH)));
+    if (drawn < slide.items.length) ctx.warn(`${drawn + 1}번 이후 항목을 그리지 못했어요. 슬라이드를 나눠주세요`);
     const h = Math.min(b.bottom - b.top, need);
     els.push(card(M, b.top, CW, h));
     const cols = { n: M + 28, t: M + 88, s: M + 660, o: M + 850 };
@@ -294,7 +313,7 @@ const LAYOUT = {
     els.push({ kind: 'line', x1: M + 16, y1: b.top + 8 + headH, x2: M + CW - 16, y2: b.top + 8 + headH, color: C.line, width: 1.5 });
     slide.items.forEach((it, i) => {
       const y = b.top + 8 + headH + i * rowH;
-      if (y + rowH > b.bottom) return;
+      if (i >= drawn) return;
       const st = STATUS[it.status];
       if (wrapLines(plain(it.text), 560, SIZE.table, 400) > 2) ctx.warn(`${i + 1}번 항목의 글이 2줄을 넘어요. 줄여주세요`);
       if (it.note && wrapLines(plain(it.note), CW - 850 - 28, SIZE.note, 400) > 2) ctx.warn(`${i + 1}번 항목의 비고가 2줄을 넘어요. 줄여주세요`);
@@ -302,7 +321,7 @@ const LAYOUT = {
       els.push(T({ x: cols.t, y, w: 560, h: rowH, paras: one(it.text), size: SIZE.table, valign: 'middle' }));
       els.push({ kind: 'pill', x: cols.s, y: y + (rowH - 32) / 2, w: 96, h: 32, text: st.label, fill: st.bg, color: st.fg, size: SIZE.pill });
       if (it.note) els.push(T({ x: cols.o, y, w: CW - 850 - 28, h: rowH, paras: one(it.note), size: SIZE.note, color: C.muted, valign: 'middle' }));
-      if (i < slide.items.length - 1) els.push({ kind: 'line', x1: M + 16, y1: y + rowH, x2: M + CW - 16, y2: y + rowH, color: C.soft, width: 1 });
+      if (i < drawn - 1) els.push({ kind: 'line', x1: M + 16, y1: y + rowH, x2: M + CW - 16, y2: y + rowH, color: C.soft, width: 1 });
     });
   },
 

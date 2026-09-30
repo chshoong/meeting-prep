@@ -35,7 +35,8 @@ function tickDecimals(sc) {
 }
 
 export function chartSvg(spec, w, h) {
-  const x0 = PAD.l;
+  let x0 = PAD.l;
+  let cats = spec.categories;
   const sc = chartScale(spec);
   const td = tickDecimals(sc);
   let padR = PAD.r;
@@ -44,6 +45,19 @@ export function chartSvg(spec, w, h) {
     padR = PAD.r + longest + 12;
   }
   const x1 = w - padR;
+  if (spec.type === 'hbar') {
+    const want = Math.max(PAD.l, ...spec.categories.map(c => textWidth(c, 14, 700) + 16));
+    const cap = Math.max(PAD.l, Math.min(want, x1 - w / 2));
+    x0 = cap;
+    if (want > cap) {
+      cats = spec.categories.map(c => {
+        if (textWidth(c, 14, 700) + 16 <= cap) return c;
+        let t = Array.from(c);
+        while (t.length > 1 && textWidth(t.join('') + '…', 14, 700) + 16 > cap) t.pop();
+        return t.join('') + '…';
+      });
+    }
+  }
   const y0 = PAD.t;
   const y1 = h - PAD.b;
   let body = '';
@@ -57,7 +71,7 @@ export function chartSvg(spec, w, h) {
     const n = spec.categories.length;
     const band = (y1 - y0) / n;
     const bh = Math.min(28, (band * 0.7) / spec.series.length);
-    spec.categories.forEach((cat, i) => {
+    cats.forEach((cat, i) => {
       const gy = y0 + band * i + (band - bh * spec.series.length) / 2;
       body += text(x0 - 10, y0 + band * i + band / 2 + 5, cat, { anchor: 'end', color: C.ink, weight: 700 });
       spec.series.forEach((s, k) => {
@@ -96,7 +110,7 @@ export function chartSvg(spec, w, h) {
           const bot = toY(Math.min(v, 0));
           const x = gx + k * bw;
           body += `<rect class="bar" x="${r2(x + 4)}" y="${r2(top)}" width="${r2(bw - 8)}" height="${r2(Math.max(1, bot - top))}" rx="6" fill="#${s.color}"/>`;
-          if (spec.valueLabels) body += text(x + bw / 2, v >= 0 ? top - 8 : bot + 18, num(v, spec.decimals), { color: s.color === C.baseline ? C.muted : s.color, weight: 700, size: SIZE.valueLabel });
+          if (spec.valueLabels) body += text(x + bw / 2, v >= 0 ? top - 8 : bot + 18, num(v, spec.decimals), { color: s.color === C.baseline ? C.muted : s.color, weight: 700, size: spec.valueLabelSize ?? SIZE.valueLabel });
         });
       });
     } else {
