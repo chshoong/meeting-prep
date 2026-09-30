@@ -72,33 +72,67 @@ function frame(slide, ctx, els) {
 }
 
 // withCard=false: 이미 카드 안(compare)에 그릴 때 테두리 카드를 겹쳐 그리지 않는다.
-function kpiCard(k, x, y, w, h, els, valueSize = SIZE.kpiValue, withCard = true) {
+function kpiCard(k, x, y, w, h, els, ctx, valueSize = SIZE.kpiValue, withCard = true) {
   if (withCard) els.push(card(x, y, w, h));
   els.push(T({ x: x + 22, y: y + 16, w: w - 44, h: 22, paras: [{ runs: [{ text: k.label }] }], size: SIZE.kpiLabel, weight: 600, color: C.muted }));
+  const avail = w - 44;
+  let size = valueSize;
+  while (size > 24 && textWidth(k.value, size, 800) > avail) size -= 1;
+  if (textWidth(k.value, size, 800) > avail) ctx.warn(`${k.label} 카드의 값이 너무 길어요`);
   const vy = y + 16 + 26;
-  const vh = valueSize * 1.25;
-  els.push(T({ x: x + 22, y: vy, w: w - 44, h: vh, paras: [{ runs: [{ text: k.value }] }], size: valueSize, weight: 800, lineHeight: 1.2, valign: 'middle' }));
+  const vh = size * 1.25;
+  els.push(T({ x: x + 22, y: vy, w: avail, h: vh, paras: [{ runs: [{ text: k.value }] }], size, weight: 800, lineHeight: 1.2, valign: 'middle' }));
   if (k.delta) {
     const dir = /^[-−▼]/.test(k.delta.trim()) ? 'down' : 'up';
     const color = dir === k.good ? C.up : C.down;
     const label = `${dir === 'up' ? '▲' : '▼'} ${k.delta.trim().replace(/^[+\-−▲▼]\s*/, '')}`;
-    const dx = x + 22 + textWidth(k.value, valueSize, 800) + 12;
-    els.push(T({ x: dx, y: vy, w: Math.max(60, x + w - 16 - dx), h: vh, paras: [{ runs: [{ text: label }] }], size: SIZE.kpiDelta, weight: 700, color, valign: 'middle' }));
+    const vw = textWidth(k.value, size, 800);
+    const dw = textWidth(label, SIZE.kpiDelta, 700) + 4;
+    const mk = (dx, dy, dwid, dh) => T({ x: dx, y: dy, w: dwid, h: dh, paras: [{ runs: [{ text: label }] }], size: SIZE.kpiDelta, weight: 700, color, valign: 'middle' });
+    if (vw + 12 + dw <= w - 38) {
+      els.push(mk(x + 22 + vw + 12, vy, x + w - 16 - (x + 22 + vw + 12), vh));
+    } else if (h >= 16 + 26 + vh + 22 + 10 && dw <= avail) {
+      els.push(mk(x + 22, vy + vh, avail, 22));
+    } else {
+      ctx.warn(`${k.label} 카드의 변화량이 들어가지 않아요`);
+    }
   }
 }
 
-function legend(spec, right, y, els) {
-  const items = spec.type === 'scatter'
+function legendItems(spec) {
+  return spec.type === 'scatter'
     ? [[spec.pointName, C.baseline], ...(spec.highlightLabel ? [[spec.highlightLabel, C.accent]] : [])]
     : spec.series.map(s => [s.name, s.color]);
-  if (items.length < 2) return;
-  const widths = items.map(([n]) => 14 + 6 + textWidth(n, SIZE.legend, 600) + 18);
-  let x = right - widths.reduce((a, b) => a + b, 0) + 18;
+}
+
+const legendWidths = (items, fs) => items.map(([n]) => 14 + 6 + textWidth(n, fs, 600) + 18);
+const legendTotal = (items, fs) => legendWidths(items, fs).reduce((a, b) => a + b, 0) - 18;
+
+// 반환: 차트를 아래로 내려야 하는 높이(범례가 제목 아래 별도 줄일 때 30)
+function legend(spec, cardX, cw, cardTop, els, ctx) {
+  const items = legendItems(spec).filter(([n]) => n != null);
+  if (items.length < 2) return 0;
+  const inner = cw - 56;
+  const titleW = spec.title ? textWidth(spec.title, SIZE.cardTitle, 800) + 24 : 0;
+  let fs = SIZE.legend;
+  let shift = 0;
+  let y = cardTop + 23;
+  let right = true;
+  if (legendTotal(items, fs) > inner - titleW) {
+    right = false;
+    shift = 30;
+    y = cardTop + 56;
+    while (fs > 12 && legendTotal(items, fs) > inner) fs -= 1;
+    if (legendTotal(items, fs) > inner) ctx.warn('범례가 너무 길어요. 계열 이름을 줄여주세요');
+  }
+  const widths = legendWidths(items, fs);
+  let x = right ? cardX + cw - 28 - legendTotal(items, fs) : cardX + 28;
   items.forEach(([n, color], i) => {
     els.push({ kind: 'rect', x, y: y + 5, w: 14, h: 14, fill: color, radius: 3 });
-    els.push(T({ x: x + 20, y, w: widths[i] - 20, h: 24, paras: [{ runs: [{ text: n }] }], size: SIZE.legend, weight: 600, color: C.muted, valign: 'middle' }));
+    els.push(T({ x: x + 20, y, w: widths[i] - 20, h: 24, paras: [{ runs: [{ text: n }] }], size: fs, weight: 600, color: C.muted, valign: 'middle' }));
     x += widths[i];
   });
+  return shift;
 }
 
 function imageOrPlaceholder(img, src, box, els) {
@@ -169,13 +203,13 @@ const LAYOUT = {
     const spec = slide.chartSpec;
     els.push(card(M, b.top, cw, bh));
     if (spec.title) els.push(T({ x: M + 28, y: b.top + 20, w: cw - 56, h: 30, paras: [{ runs: [{ text: spec.title }] }], size: SIZE.cardTitle, weight: 800, valign: 'middle' }));
-    legend(spec, M + cw - 28, b.top + 23, els);
-    els.push({ kind: 'chart', x: M + 16, y: b.top + 60, w: cw - 32, h: bh - 72, spec });
+    const shift = legend(spec, M, cw, b.top, els, ctx);
+    els.push({ kind: 'chart', x: M + 16, y: b.top + 60 + shift, w: cw - 32, h: bh - 72 - shift, spec });
     if (hasK) {
       const n = slide.kpis.length;
       const gap = 15;
       const kh = Math.min(120, (bh - gap * (n - 1)) / n);
-      slide.kpis.forEach((k, i) => kpiCard(k, M + cw + FRAME.gap, b.top + i * (kh + gap), CW - cw - FRAME.gap, kh, els));
+      slide.kpis.forEach((k, i) => kpiCard(k, M + cw + FRAME.gap, b.top + i * (kh + gap), CW - cw - FRAME.gap, kh, els, ctx));
     }
   },
 
@@ -185,7 +219,7 @@ const LAYOUT = {
     const w = (CW - FRAME.gap * (n - 1)) / n;
     const h = Math.min(180, b.bottom - b.top);
     const y = b.top + Math.max(0, (b.bottom - b.top - h) / 2);
-    slide.kpis.forEach((k, i) => kpiCard(k, M + i * (w + FRAME.gap), y, w, h, els, SIZE.statValue));
+    slide.kpis.forEach((k, i) => kpiCard(k, M + i * (w + FRAME.gap), y, w, h, els, ctx, SIZE.statValue));
   },
 
   cards(slide, ctx, els) {
@@ -198,11 +232,14 @@ const LAYOUT = {
       const x = M + i * (w + gap);
       const color = colorOf(c.color, SERIES[i % SERIES.length]);
       els.push(card(x, b.top, w, h));
-      const chipW = Math.min(w - 48, textWidth(c.title, SIZE.chip, 700) + 64);
+      let chipSize = SIZE.chip;
+      while (chipSize > 14 && textWidth(c.title, chipSize, 700) > w - 48 - 50) chipSize -= 1;
+      const chipW = Math.min(w - 48, textWidth(c.title, chipSize, 700) + 64);
+      if (textWidth(c.title, chipSize, 700) > chipW - 50) ctx.warn(`${i + 1}번 카드 제목이 길어요`);
       els.push({ kind: 'rect', x: x + 24, y: b.top + 24, w: chipW, h: 38, fill: color, radius: 8 });
       els.push({ kind: 'circle', x: x + 32, y: b.top + 30, d: 26, fill: C.white, alpha: 0.28 });
       els.push(T({ x: x + 32, y: b.top + 30, w: 26, h: 26, paras: [{ runs: [{ text: String(i + 1) }] }], size: 15, weight: 700, color: C.white, align: 'center', valign: 'middle' }));
-      els.push(T({ x: x + 66, y: b.top + 24, w: chipW - 50, h: 38, paras: [{ runs: [{ text: c.title }] }], size: SIZE.chip, weight: 700, color: C.white, valign: 'middle' }));
+      els.push(T({ x: x + 66, y: b.top + 24, w: chipW - 50, h: 38, paras: [{ runs: [{ text: c.title }] }], size: chipSize, weight: 700, color: C.white, valign: 'middle' }));
       const t = T({ x: x + 24, y: b.top + 80, w: w - 48, h: h - 104, paras: bulletParas(c.items), size: SIZE.body, color: C.text2, lineHeight: 1.6, paraSpace: 6 });
       els.push(t);
       checkFit(t, `${i + 1}번 카드`, ctx);
@@ -233,13 +270,14 @@ const LAYOUT = {
     const b = frame(slide, ctx, els);
     const headH = 46;
     const rowH = 50;
-    const need = headH + rowH * slide.rows.length + 16;
-    const h = Math.min(b.bottom - b.top, need);
-    if (need > b.bottom - b.top) ctx.warn('표가 넘칠 수 있어요. 행을 줄이거나 슬라이드를 나눠주세요');
+    const fit = Math.max(0, Math.floor((b.bottom - b.top - headH - 16) / rowH));
+    const rows = slide.rows.slice(0, fit);
+    if (rows.length < slide.rows.length) ctx.warn('표가 넘쳐서 일부 행을 그리지 못했어요. 행을 줄이거나 슬라이드를 나눠주세요');
+    const h = headH + rowH * rows.length + 16;
     els.push(card(M, b.top, CW, h));
     const w = CW - 24;
     els.push({ kind: 'table', x: M + 12, y: b.top + 8, w, colW: colWidths(slide.columns, slide.rows, w), headH, rowH,
-      columns: slide.columns, rows: slide.rows, highlight: slide.highlight, size: SIZE.table, headSize: SIZE.tableHead });
+      columns: slide.columns, rows, highlight: (slide.highlight ?? []).filter(n => n <= rows.length), size: SIZE.table, headSize: SIZE.tableHead });
   },
 
   checklist(slide, ctx, els) {
@@ -258,6 +296,8 @@ const LAYOUT = {
       const y = b.top + 8 + headH + i * rowH;
       if (y + rowH > b.bottom) return;
       const st = STATUS[it.status];
+      if (wrapLines(plain(it.text), 560, SIZE.table, 400) > 2) ctx.warn(`${i + 1}번 항목의 글이 2줄을 넘어요. 줄여주세요`);
+      if (it.note && wrapLines(plain(it.note), CW - 850 - 28, SIZE.note, 400) > 2) ctx.warn(`${i + 1}번 항목의 비고가 2줄을 넘어요. 줄여주세요`);
       els.push(T({ x: cols.n, y, w: 50, h: rowH, paras: [{ runs: [{ text: String(i + 1) }] }], size: SIZE.table, weight: 700, color: C.faint, valign: 'middle' }));
       els.push(T({ x: cols.t, y, w: 560, h: rowH, paras: one(it.text), size: SIZE.table, valign: 'middle' }));
       els.push({ kind: 'pill', x: cols.s, y: y + (rowH - 32) / 2, w: 96, h: 32, text: st.label, fill: st.bg, color: st.fg, size: SIZE.pill });
@@ -278,7 +318,7 @@ const LAYOUT = {
       if (side.image) imageOrPlaceholder(side.img, side.image, box, els);
       else if (side.kpis.length) {
         const kh = Math.min(120, (box.h - 12 * (side.kpis.length - 1)) / side.kpis.length);
-        side.kpis.forEach((k, j) => kpiCard(k, box.x - 22, box.y + j * (kh + 12), box.w + 22, kh, els, SIZE.kpiValue, false));
+        side.kpis.forEach((k, j) => kpiCard(k, box.x - 22, box.y + j * (kh + 12), box.w + 22, kh, els, ctx, SIZE.kpiValue, false));
       } else {
         const t = T({ ...box, paras: bulletParas(side.items), size: SIZE.body, color: C.text2, lineHeight: 1.6, paraSpace: 6 });
         els.push(t);

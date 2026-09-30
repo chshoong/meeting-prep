@@ -99,3 +99,68 @@ test('그림이 없으면 경고 상자', () => {
   assert.ok(pages[0].elements.some(e => e.kind === 'rect' && e.dash));
   assert.ok(pages[0].elements.some(e => e.kind === 'text' && /그림 없음: nope\.png/.test(e.paras[0].runs[0].text)));
 });
+
+const inBox = (e, c) => { const b = boxOf(e); return !b || (b.x >= c.x - 0.5 && b.x + b.w <= c.x + c.w + 0.5 && b.y + b.h <= c.y + c.h + 0.5); };
+const textBoxes = els => els.filter(e => e.kind === 'text');
+
+test('stats: 긴 수치와 변화량도 카드 밖으로 나가지 않음', () => {
+  const k = l => `  - { label: ${l}, value: "12,345건", delta: "+0.0215" }`;
+  const { slides } = parseDeck(`---\nlayout: stats\ntitle: t\nkpis:\n${[k('가'), k('나'), k('다'), k('라')].join('\n')}\n---\n`);
+  const { pages } = layoutDeck(slides, { brand: '' });
+  const els = pages[0].elements;
+  const cs = cards(els);
+  assert.equal(cs.length, 4);
+  for (const c of cs) {
+    const inside = els.filter(e => e !== c && e.kind === 'text' && e.x >= c.x && e.x < c.x + c.w && e.y >= c.y && e.y < c.y + c.h);
+    assert.ok(inside.length >= 3);
+    for (const e of inside) assert.ok(e.x + e.w <= c.x + c.w + 0.5 && e.y + e.h <= c.y + c.h + 0.5 && e.x + e.w <= W);
+  }
+});
+
+test('긴 계열 이름: 범례가 카드 안, 차트는 아래로, 제목과 겹치지 않음', () => {
+  const { slides } = parseDeck('---\nlayout: chart\ntitle: t\nchart:\n  type: bar\n  title: 제품별 Test AP\n  data: a.csv\n  x: a\n  y: [b]\n---\n');
+  slides[0].chartSpec = { type: 'bar', title: '제품별 Test AP', series: ['A', 'B', 'C', 'D'].map((s, i) => ({ name: `Very long series name ${s} with extra words`, color: ['111111', '222222', '333333', '444444'][i] })) };
+  slides[0].kpis = [];
+  const { pages } = layoutDeck(slides, { brand: '' });
+  const els = pages[0].elements;
+  const card0 = cards(els)[0];
+  const swatches = els.filter(e => e.kind === 'rect' && e.w === 14 && e.h === 14);
+  assert.equal(swatches.length, 4);
+  assert.ok(swatches.every(s => s.x >= card0.x));
+  const ch = els.find(e => e.kind === 'chart');
+  assert.ok(ch.y >= card0.y + 90 && ch.y + ch.h <= card0.y + card0.h);
+  const title = textBoxes(els).find(e => e.paras[0].runs[0].text === '제품별 Test AP');
+  const legendTexts = textBoxes(els).filter(e => /Very long/.test(e.paras[0].runs[0].text));
+  for (const t of legendTexts) assert.ok(!overlap(t, title));
+});
+
+test('cards(flow) 긴 칩 제목: 칩 안에 들어가거나 경고', () => {
+  const card = t => `  - title: ${t}\n    items: [a]`;
+  const { slides } = parseDeck(`---\nlayout: cards\ntitle: t\nflow: true\ncards:\n${['Data Audit and Cleaning', 'Model Selection Pipeline', 'Evaluation and Reporting', 'Deploy'].map(card).join('\n')}\n---\n`);
+  const { pages, warnings } = layoutDeck(slides, { brand: '' });
+  const els = pages[0].elements;
+  const chips = els.filter(e => e.kind === 'rect' && e.h === 38 && e.radius === 8);
+  assert.equal(chips.length, 4);
+  for (const chip of chips) {
+    const t = textBoxes(els).find(e => e.h === 38 && e.x > chip.x && e.x < chip.x + chip.w);
+    assert.ok(t.x + t.w <= chip.x + chip.w + 0.5 || warnings.length > 0);
+  }
+});
+
+test('표 20행: 카드 안에서 끝나고 경고', () => {
+  const rows = Array.from({ length: 20 }, (_, i) => `  - [r${i}, a]`).join('\n');
+  const { slides } = parseDeck(`---\nlayout: table\ntitle: t\ncolumns: [x, y]\nrows:\n${rows}\n---\n`);
+  const { pages, warnings } = layoutDeck(slides, { brand: '' });
+  const els = pages[0].elements;
+  const t = els.find(e => e.kind === 'table');
+  const c = cards(els)[0];
+  assert.ok(t.y + t.headH + t.rowH * t.rows.length <= c.y + c.h);
+  assert.ok(t.rows.length < 20);
+  assert.ok(warnings.length > 0);
+});
+
+test('체크리스트: 아주 긴 항목은 경고', () => {
+  const { slides } = parseDeck(`---\nlayout: checklist\ntitle: t\nitems:\n  - { text: "${'아주 긴 할 일 설명 '.repeat(20)}", status: done }\n---\n`);
+  const { warnings } = layoutDeck(slides, { brand: '' });
+  assert.ok(warnings.some(w => /2줄/.test(w.message)));
+});
