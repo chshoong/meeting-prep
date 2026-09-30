@@ -71,3 +71,13 @@ test('from.agg와 table의 from.show는 정해진 값만', () => {
   }
 });
 
+
+test('흔한 형식 실수에는 고치는 법을 알려준다', () => {
+  const head = '---\nreport: { title: T }\n---\n---\ntab: a\n---\n---\nsection: s\n---\n';
+  const doubled = parseReport(`${head}---\ncomponent: text\n---\n본문\n---\n---\ncomponent: text\n---\n둘\n`);
+  assert.ok(doubled.errors.some(e => /머리말이 비어 있어요.*한 줄만/.test(e.message)), JSON.stringify(doubled.errors));
+  const typed = parseReport(`${head}---\ntype: stats\nitems: [{ label: a, value: 1 }]\n---\n`);
+  assert.match(typed.errors[0].message, /component: stats/);
+  const comma = parseReport(`${head}---\ncomponent: table\ncolumns: [방법, 비고]\nrows: [[A, 느림, 정확]]\n---\n`);
+  assert.match(comma.errors[0].message, /큰따옴표/);
+});

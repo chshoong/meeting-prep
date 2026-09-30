@@ -39,6 +39,7 @@ section.sec > h2 { font-size: 29px; letter-spacing: -0.9px; line-height: 1.4; ma
 .c-text { max-width: 900px; font-size: 17px; }
 .c-text p { margin: 8px 0 14px; }
 b.acc { color: var(--accent); } b.pink { color: var(--pink); }
+code { font-family: Consolas, 'D2Coding', monospace; font-size: 0.9em; background: var(--soft); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; word-break: break-all; }
 .muted { color: var(--muted); }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin: 22px 0; }
 .stats article { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 6px; }

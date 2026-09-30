@@ -68,6 +68,6 @@ node "${CLAUDE_PLUGIN_ROOT}/renderer/report.js" "<보고서 폴더>/report.md" -
 
 ## 7. 알리기
 
-- 누적판과 강조판 경로
+- 누적판과 강조판의 **로컬 파일 전체 경로** (예: `C:\Users\...\report\report.html`). 웹 주소처럼 링크로 바꾸지 않는다.
 - "HTML 파일 하나라서 메일로 보내도 인터넷 없이 열려요. 미팅 때는 브라우저로 열어 화면 공유하면 돼요."
 - `⚠ 확인 필요` 목록

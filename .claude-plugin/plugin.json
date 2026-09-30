@@ -1,6 +1,6 @@
 {
   "name": "meeting-prep",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "작업 로그와 교수님 피드백을 쌓아 미팅 자료(PPTX, PDF)와 웹 보고서를 만듭니다",
   "author": { "name": "shoong" }
 }

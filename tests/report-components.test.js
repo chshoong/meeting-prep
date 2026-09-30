@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { renderComponent, markdownHtml, externalUrl } from '../renderer/report-components.js';
+import { renderComponent, markdownHtml, externalUrl, inlineHtml } from '../renderer/report-components.js';
 import { loadDatasets } from '../renderer/report-data.js';
 import { makeSampleReport } from './helpers.js';
 
@@ -18,6 +18,12 @@ test('markdownHtml: 문단, 목록, 강조, 이스케이프', () => {
   const h = markdownHtml('a **b** ==c== <x>\n\n- 하나\n  - 둘');
   assert.match(h, /<p>a <b class="acc">b<\/b> <b class="pink">c<\/b> &lt;x&gt;<\/p>/);
   assert.equal((h.match(/<li/g) ?? []).length, 2);
+});
+
+test('inlineHtml: `코드`는 code로, 안의 ** 와 <는 글자 그대로', () => {
+  assert.equal(inlineHtml('파일 `assets/**r**.csv` 참고'), '파일 <code>assets/**r**.csv</code> 참고');
+  assert.equal(inlineHtml('`a<b` 그리고 **굵게**'), '<code>a&lt;b</code> 그리고 <b class="acc">굵게</b>');
+  assert.equal(inlineHtml('짝이 없는 ` 백틱'), '짝이 없는 ` 백틱');
 });
 
 test('정적 부품: text, stats, cards, steps, details, callout, checklist', () => {

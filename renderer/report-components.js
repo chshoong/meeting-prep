@@ -10,8 +10,11 @@ import { loadImage } from './images.js';
 const CHART_W = 1160;
 const CHART_H = 380;
 
+const emphasisHtml = text => parseInline(text).map(r => (r.bold ? `<b class="acc">${esc(r.text)}</b>` : r.pink ? `<b class="pink">${esc(r.text)}</b>` : esc(r.text))).join('');
+
+// `코드`는 짝이 맞는 백틱만 code로 바꾸고, 그 안은 강조 표시를 해석하지 않는다
 export function inlineHtml(text) {
-  return parseInline(String(text ?? '')).map(r => (r.bold ? `<b class="acc">${esc(r.text)}</b>` : r.pink ? `<b class="pink">${esc(r.text)}</b>` : esc(r.text))).join('');
+  return String(text ?? '').split(/(`[^`\n]+`)/).map(part => (/^`[^`\n]+`$/.test(part) ? `<code>${esc(part.slice(1, -1))}</code>` : emphasisHtml(part))).join('');
 }
 
 export function markdownHtml(body) {

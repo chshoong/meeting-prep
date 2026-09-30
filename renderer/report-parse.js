@@ -49,7 +49,7 @@ function validate(c) {
     case 'table':
       if (c.from) return checkFrom('table', c.from);
       if (!Array.isArray(c.columns) || !Array.isArray(c.rows)) return 'table 부품에는 columns와 rows, 또는 from이 필요해요';
-      return c.rows.every(r => Array.isArray(r) && r.length === c.columns.length) ? null : `표의 모든 행은 칸이 ${c.columns.length}개여야 해요`;
+      return c.rows.every(r => Array.isArray(r) && r.length === c.columns.length) ? null : `표의 모든 행은 칸이 ${c.columns.length}개여야 해요. 칸 안에 쉼표가 있으면 그 칸을 큰따옴표로 감싸세요 (예: ["A, B", "0.43"])`;
     case 'compare': case 'filter':
       return c.dataset ? null : `${c.type} 부품에는 dataset이 필요해요`;
     case 'figure':
@@ -73,6 +73,10 @@ export function parseReport(text) {
   blocks.forEach((b, k) => {
     const n = k + 1;
     const fail = message => { errors.push({ block: n, line: b.line, message }); };
+    if (!b.yaml.trim()) {
+      fail("머리말이 비어 있어요. 본문이 있는 부품(text, details, callout, custom) 뒤에 '---'를 두 번 쓰면 이렇게 돼요. 본문 다음에는 '---'를 한 줄만 쓰고, 그 줄이 곧 다음 블록의 시작이에요");
+      return;
+    }
     let meta;
     try {
       meta = load(b.yaml) ?? {};
@@ -126,7 +130,8 @@ export function parseReport(text) {
       section.components.push(c);
       return;
     }
-    fail('블록의 첫 키는 report, tab, section, component 중 하나여야 해요');
+    const hint = COMPONENTS.includes(String(meta.type)) ? ` 부품이라면 'component: ${meta.type}'로 시작하세요 (type: 이 아니라 component:)` : '';
+    fail(`블록의 첫 키는 report, tab, section, component 중 하나여야 해요.${hint}`);
   });
 
   if (!report.tabs.length && !errors.length) errors.push({ block: 0, line: 1, message: '탭이 하나도 없어요' });
