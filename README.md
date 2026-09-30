@@ -11,7 +11,17 @@ Claude와 작업하면서 로그를 남기고, 미팅이 끝나면 피드백을 
 
 ## 설치
 
-터미널에서 두 줄을 실행한 뒤, 작업하던 폴더에서 **새 채팅**을 여세요.
+**가장 쉬운 방법**: Claude Code에서 새 채팅을 열고 아래 메시지를 그대로 보내세요. Node.js 설치까지 Claude가 해요.
+
+```
+meeting-prep 플러그인(https://github.com/chshoong/meeting-prep)을 설치해줘. 순서대로 해줘.
+1. node -v로 Node.js 20 이상인지 확인해. 없거나 낮으면 설치해줘(윈도우: winget install OpenJS.NodeJS.LTS, 맥: brew install node). 설치한 뒤에는 PATH를 새로 읽어서 다시 확인해.
+2. claude 명령을 찾아. PATH에 없으면 Claude 데스크톱 앱 폴더(윈도우는 %APPDATA%\Claude\claude-code\<버전>\claude.exe) 중 가장 최신 버전을 써. 그래도 없으면 npm install -g @anthropic-ai/claude-code로 설치해.
+3. claude plugin marketplace add chshoong/meeting-prep 과 claude plugin install meeting-prep@meeting-prep-local 을 실행해.
+4. claude plugin list로 설치됐는지 확인하고, 새 채팅을 열어야 적용된다고 알려줘.
+```
+
+**직접 설치**: 터미널에서 두 줄을 실행한 뒤, 작업하던 폴더에서 **새 채팅**을 여세요.
 
 ```
 claude plugin marketplace add chshoong/meeting-prep
