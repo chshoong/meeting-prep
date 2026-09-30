@@ -31,3 +31,16 @@ export function fontFaceCss() {
   }).join('\n');
   return cache;
 }
+
+export function pretendardInstalled({ env = process.env, platform = process.platform, readdir = fs.readdirSync } = {}) {
+  if (platform !== 'win32') return null;
+  const dirs = [env.WINDIR && path.join(env.WINDIR, 'Fonts'), env.LOCALAPPDATA && path.join(env.LOCALAPPDATA, 'Microsoft', 'Windows', 'Fonts')].filter(Boolean);
+  for (const d of dirs) {
+    try {
+      if (readdir(d).some(f => /^pretendard.*\.(otf|ttf)$/i.test(f))) return true;
+    } catch {
+      // 폴더 없음
+    }
+  }
+  return false;
+}

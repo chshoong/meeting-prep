@@ -27,17 +27,21 @@ export function findBrowser({ env = process.env, platform = process.platform, ex
   return browserCandidates(platform, env).find(p => exists(p)) ?? null;
 }
 
-export function renderPdf(htmlPath, pdfPath, browser, { timeoutMs = 60000, spawnImpl = spawn } = {}) {
+
+export function runBrowser(browser, args, { timeoutMs = 60000, spawnImpl = spawn } = {}) {
   return new Promise((resolve, reject) => {
     const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'meeting-prep-browser-'));
-    fs.rmSync(pdfPath, { force: true });
-    const args = [
-      '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-      '--no-pdf-header-footer', `--user-data-dir=${profile}`, `--print-to-pdf=${pdfPath}`,
-      pathToFileURL(htmlPath).href,
-    ];
-    const child = spawnImpl(browser, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+    const full = ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', `--user-data-dir=${profile}`, ...args];
+    let child;
+    try {
+      child = spawnImpl(browser, full, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+    } catch (e) {
+      fs.rmSync(profile, { recursive: true, force: true });
+      reject(e);
+      return;
+    }
     let stderr = '';
+    child.stderr?.setEncoding?.('utf8');
     child.stderr?.on('data', d => { stderr = (stderr + d.toString()).slice(-4096); });
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; child.kill(); }, timeoutMs);
@@ -45,16 +49,20 @@ export function renderPdf(htmlPath, pdfPath, browser, { timeoutMs = 60000, spawn
       clearTimeout(timer);
       try { fs.rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch { /* 윈도우에서 잠시 잠겨 있을 수 있음 */ }
     };
-    const fail = () => {
-      const tail = stderr.trim().split(/\r?\n/).slice(-10).join(' / ');
-      const reason = timedOut ? ` (시간 초과 ${timeoutMs / 1000}초)` : '';
-      return new Error(`브라우저가 PDF를 만들지 못했습니다${reason}${tail ? `. 브라우저 출력: ${tail}` : ''}`);
-    };
     child.on('error', e => { cleanup(); reject(e); });
-    child.on('exit', () => {
-      cleanup();
-      if (!timedOut && fs.existsSync(pdfPath) && fs.statSync(pdfPath).size > 0) resolve(pdfPath);
-      else reject(fail());
-    });
+    child.on('exit', () => { cleanup(); resolve({ stderr, timedOut }); });
   });
+}
+
+export function browserFailure(what, { stderr, timedOut }, timeoutMs) {
+  const tail = stderr.trim().split(/\r?\n/).slice(-10).join(' / ');
+  const reason = timedOut ? ` (시간 초과 ${timeoutMs / 1000}초)` : '';
+  return new Error(`${what}${reason}${tail ? `. 브라우저 출력: ${tail}` : ''}`);
+}
+
+export async function renderPdf(htmlPath, pdfPath, browser, { timeoutMs = 60000, spawnImpl = spawn } = {}) {
+  fs.rmSync(pdfPath, { force: true });
+  const r = await runBrowser(browser, ['--no-pdf-header-footer', `--print-to-pdf=${pdfPath}`, pathToFileURL(htmlPath).href], { timeoutMs, spawnImpl });
+  if (!r.timedOut && fs.existsSync(pdfPath) && fs.statSync(pdfPath).size > 0) return pdfPath;
+  throw browserFailure('브라우저가 PDF를 만들지 못했습니다', r, timeoutMs);
 }
