@@ -125,6 +125,8 @@ export function renderReportHtml(report, { datasets, baseDir, highlight } = {}) 
     return highlight.newKeys.has(sectionKey(tab.id, s.title)) ? 'new' : 'changed';
   };
   const changed = [];
+  const defaultId = highlight ? 'meeting' : report.tabs[0]?.id;
+  const hiddenUnless = id => (id === defaultId ? '' : ' hidden');
   const tabs = report.tabs.map((tab, i) => {
     const live = tab.sections.filter(s => !s.archived);
     const old = tab.sections.filter(s => s.archived);
@@ -132,7 +134,7 @@ export function renderReportHtml(report, { datasets, baseDir, highlight } = {}) 
       + (old.length ? `<details class="archive"><summary>이전 결과 (${old.length})</summary>${old.map(s => { out.sections.push(sectionKey(tab.id, s.title)); return renderSection(tab, s, ctx, out, null, idOf); }).join('')}</details>` : '');
     const nextTab = report.tabs[i + 1];
     const next = nextTab ? `<button type="button" class="next" data-go="${esc(nextTab.id)}">${esc(nextTab.title)} 보기 →</button>` : '';
-    return { tab, html: `<div class="panel" data-tab-panel="${esc(tab.id)}" hidden>${body}${next}</div>`, dot: live.some(s => badgeOf(tab, s)) };
+    return { tab, html: `<div class="panel" data-tab-panel="${esc(tab.id)}"${hiddenUnless(tab.id)}>${body}${next}</div>`, dot: live.some(s => badgeOf(tab, s)) };
   });
 
   let meeting = null;
@@ -140,10 +142,10 @@ export function renderReportHtml(report, { datasets, baseDir, highlight } = {}) 
     const listHtml = changed.length
       ? `<ul class="meeting-list">${changed.map(({ tab, s, b }) => `<li><a href="#" data-jump="${esc(tab.id)}#${idOf(sectionKey(tab.id, s.title))}">${esc(tab.title)} · ${inlineHtml(s.title)}</a> <span class="badge ${b === 'new' ? 'new' : 'changed'}">${b === 'new' ? 'NEW' : '변경'}</span></li>`).join('')}</ul>`
       : '<p class="muted">이번 사이클에 바뀐 섹션이 없어요.</p>';
-    meeting = `<div class="panel" data-tab-panel="meeting" hidden><section class="sec"><div class="kicker">THIS MEETING · ${esc(highlight.cycle)}</div><h2>이번 미팅</h2>${highlight.meetingHtml || ''}<div class="card"><h3>이번 사이클에 바뀐 부분</h3>${listHtml}</div></section></div>`;
+    meeting = `<div class="panel" data-tab-panel="meeting"${hiddenUnless('meeting')}><section class="sec"><div class="kicker">THIS MEETING · ${esc(highlight.cycle)}</div><h2>이번 미팅</h2>${highlight.meetingHtml || ''}<div class="card"><h3>이번 사이클에 바뀐 부분</h3>${listHtml}</div></section></div>`;
   }
 
-  const btn = (id, label, dot) => `<button type="button" role="tab" data-tab-btn="${esc(id)}" aria-selected="false">${dot ? '<span class="dot"></span>' : ''}${label}</button>`;
+  const btn = (id, label, dot) => `<button type="button" role="tab" data-tab-btn="${esc(id)}" aria-selected="${id === defaultId}">${dot ? '<span class="dot"></span>' : ''}${label}</button>`;
   const nav = (meeting ? btn('meeting', '이번 미팅', false) : '')
     + tabs.map((t, i) => btn(t.tab.id, `${pad2(i + 1)} ${esc(t.tab.title)}`, t.dot)).join('');
 
@@ -161,6 +163,7 @@ export function renderReportHtml(report, { datasets, baseDir, highlight } = {}) 
 <style>
 ${css()}
 </style>
+<noscript><style>[data-tab-panel]{display:block!important}.tabs{display:none}</style></noscript>
 </head>
 <body>
 <header class="masthead">${m.kicker ? `<div class="kicker">${esc(m.kicker)}</div>` : ''}<h1>${inlineHtml(m.title)}</h1>${m.subtitle ? `<p>${inlineHtml(m.subtitle)}</p>` : ''}${m.pills.length ? `<div class="pills">${m.pills.map(p => `<span>${esc(p)}</span>`).join('')}</div>` : ''}</header>

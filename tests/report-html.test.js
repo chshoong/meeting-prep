@@ -27,6 +27,27 @@ test('페이지: 머리띠, 탭 3개, 패널, 섹션, 데이터 JSON, 실행기'
   assert.deepEqual(r.sections, [sectionKey('goal', '무엇을 비교하나?'), sectionKey('method', '파이프라인'), sectionKey('results', '방법별 Test AP'), sectionKey('results', '예전 결과')]);
 });
 
+test('스크립트 없이도 보인다: 기본 패널 하나만 hidden이 없고, 그 탭이 선택됨, noscript 스타일', () => {
+  const visible = html => [...html.matchAll(/<div class="panel" data-tab-panel="([^"]+)"( hidden)?>/g)].filter(m => !m[2]).map(m => m[1]);
+  const { html } = build();
+  assert.deepEqual(visible(html), ['goal']);
+  assert.match(html, /data-tab-btn="goal" aria-selected="true"/);
+  assert.equal((html.match(/aria-selected="true"/g) ?? []).length, 1);
+  assert.match(html, /<head>[\s\S]*<noscript><style>\[data-tab-panel\]\{display:block!important\}\.tabs\{display:none\}<\/style><\/noscript>[\s\S]*<\/head>/);
+  const hl = build({ highlight: { cycle: '2026-10-06', newKeys: new Set(), touched: new Set(), meetingHtml: '' } });
+  assert.deepEqual(visible(hl.html), ['meeting']);
+  assert.match(hl.html, /data-tab-btn="meeting" aria-selected="true"/);
+  assert.equal((hl.html.match(/aria-selected="true"/g) ?? []).length, 1);
+});
+
+test('페이지에 넣은 실행기 스크립트는 문법 오류가 없다', () => {
+  const { html } = build();
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  const body = scripts.at(-1)[1];
+  assert.match(body, /mpReady/);
+  assert.doesNotThrow(() => new Function(body));
+});
+
 test('외부 요청 없음: http(s), // 주소가 src/href/url/@import에 없다', () => {
   const { html } = build();
   assert.doesNotMatch(html, /(?:src|href)\s*=\s*["']?(?:https?:)?\/\//i);
