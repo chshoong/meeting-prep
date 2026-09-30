@@ -41,6 +41,15 @@ test('seriesFrom: x별·by별 평균, 계열 이름', () => {
   assert.deepEqual(two.series[1].values, [90, 80]);
 });
 
+test('seriesFrom: 없는 조건 조합은 0이 아니라 null', () => {
+  const unbalanced = rows.filter(r => !(r.method === 'B' && r.scenario === '2'));
+  const r = calc.seriesFrom(unbalanced, { x: 'scenario', y: ['ap'], by: 'method' }, meta);
+  assert.deepEqual(r.categories, ['1', '2']);
+  assert.equal(r.series[1].name, 'B');
+  assert.deepEqual(r.series[1].values, [0.46, null]);
+  assert.equal(r.series[0].values[1], 0.5);
+});
+
 test('tableFrom: 조합별 행, 자릿수, 평균과 표준편차', () => {
   const t = calc.tableFrom(rows, { x: 'method', y: ['ap'], show: ['mean', 'sd'] }, meta);
   assert.deepEqual(t.columns, ['방법', 'Test AP (mean)', 'Test AP (sd)']);

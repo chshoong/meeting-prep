@@ -88,3 +88,23 @@ test('가로 막대: 긴 항목 이름이 왼쪽에서 잘리지 않음', () => 
   assert.ok(labels.length >= 2);
   for (const [, x, t] of labels) assert.ok(Number(x) - textWidth(t, 14, 700) >= 0, `${t} 잘림`);
 });
+
+test('빈 값(null)은 막대·값 표시를 그리지 않고, 선은 끊기며, NaN이 없다', () => {
+  const spec = (type, values) => ({ type, title: '', xLabel: '', yLabel: '', yMin: null, valueLabels: true, decimals: 2, categories: ['a', 'b', 'c'],
+    series: [{ name: 'x', values, color: '5B45D6' }], points: [], pointName: '', highlightLabel: '' });
+  for (const type of ['bar', 'hbar']) {
+    const full = chartSvg(spec(type, [0.1, 0.2, 0.3]), 600, 300);
+    const gap = chartSvg(spec(type, [0.1, null, 0.3]), 600, 300);
+    assert.equal((gap.match(/class="bar"/g) ?? []).length, (full.match(/class="bar"/g) ?? []).length - 1, type);
+    assert.doesNotMatch(gap, /NaN|Infinity/, type);
+    assert.doesNotMatch(gap, />0\.00</, type);
+  }
+  const line = chartSvg(spec('line', [0.1, null, 0.3]), 600, 300);
+  assert.doesNotMatch(line, /NaN|Infinity/);
+  assert.equal((line.match(/class="pt"/g) ?? []).length, 2);
+  for (const type of ['bar', 'hbar', 'line']) {
+    const none = spec(type, [null, null, null]);
+    assert.doesNotThrow(() => chartScale(none));
+    assert.doesNotMatch(chartSvg(none, 600, 300), /NaN|Infinity/, type);
+  }
+});

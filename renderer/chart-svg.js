@@ -4,10 +4,12 @@ const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
 const num = (v, d) => Number(v).toFixed(d);
 const r2 = v => Math.round(v * 100) / 100;
 const PAD = { l: 64, r: 20, t: 28, b: 44 };
+const ok = v => typeof v === 'number' && Number.isFinite(v);
 
 export function chartScale(spec) {
   if (spec.type === 'scatter') return niceScale(Math.min(...spec.points.map(p => p.y)), Math.max(...spec.points.map(p => p.y)));
-  const vals = spec.series.flatMap(s => s.values);
+  const found = spec.series.flatMap(s => s.values).filter(ok);
+  const vals = found.length ? found : [0];
   const hi = Math.max(...vals);
   const ym = spec.yMin != null && spec.yMin < hi ? spec.yMin : null;
   const sc = niceScale(ym ?? Math.min(0, ...vals), hi);
@@ -41,7 +43,7 @@ export function chartSvg(spec, w, h) {
   const td = tickDecimals(sc);
   let padR = PAD.r;
   if (spec.type === 'hbar' && spec.valueLabels) {
-    const longest = Math.max(...spec.series.flatMap(s => s.values.map(v => textWidth(num(v, spec.decimals), SIZE.valueLabel, 700))));
+    const longest = Math.max(0, ...spec.series.flatMap(s => s.values.filter(ok).map(v => textWidth(num(v, spec.decimals), SIZE.valueLabel, 700))));
     padR = PAD.r + longest + 12;
   }
   const x1 = w - padR;
@@ -75,6 +77,7 @@ export function chartSvg(spec, w, h) {
       const gy = y0 + band * i + (band - bh * spec.series.length) / 2;
       body += text(x0 - 10, y0 + band * i + band / 2 + 5, cat, { anchor: 'end', color: C.ink, weight: 700 });
       spec.series.forEach((s, k) => {
+        if (!ok(s.values[i])) return;
         const a = toX(Math.max(sc.min, Math.min(0, s.values[i])));
         const b = toX(Math.max(0, s.values[i]));
         const y = gy + k * bh;
@@ -106,6 +109,7 @@ export function chartSvg(spec, w, h) {
         const gx = x0 + band * i + (band - bw * spec.series.length) / 2;
         spec.series.forEach((s, k) => {
           const v = s.values[i];
+          if (!ok(v)) return;
           const top = toY(Math.max(v, 0));
           const bot = toY(Math.min(v, 0));
           const x = gx + k * bw;
@@ -115,9 +119,13 @@ export function chartSvg(spec, w, h) {
       });
     } else {
       spec.series.forEach(s => {
-        const pts = s.values.map((v, i) => [x0 + band * i + band / 2, toY(v)]);
-        body += `<polyline points="${pts.map(p => p.map(r2).join(',')).join(' ')}" fill="none" stroke="#${s.color}" stroke-width="3" stroke-linejoin="round"/>`;
-        pts.forEach(([x, y], i) => {
+        const pts = s.values.map((v, i) => (ok(v) ? [x0 + band * i + band / 2, toY(v)] : null));
+        const runs = [[]];
+        for (const p of pts) { if (p) runs.at(-1).push(p); else if (runs.at(-1).length) runs.push([]); }
+        for (const run of runs.filter(r => r.length)) body += `<polyline points="${run.map(p => p.map(r2).join(',')).join(' ')}" fill="none" stroke="#${s.color}" stroke-width="3" stroke-linejoin="round"/>`;
+        pts.forEach((p, i) => {
+          if (!p) return;
+          const [x, y] = p;
           body += `<circle class="pt" cx="${r2(x)}" cy="${r2(y)}" r="5" fill="#${s.color}"/>`;
           if (spec.valueLabels) body += text(x, y - 12, num(s.values[i], spec.decimals), { color: s.color, weight: 700, size: SIZE.valueLabel });
         });

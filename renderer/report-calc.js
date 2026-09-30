@@ -57,8 +57,7 @@ export function makeCalc() {
         const name = g == null ? labelOf(meta, y) : ys.length > 1 ? `${g} · ${labelOf(meta, y)}` : g;
         const values = categories.map(c => {
           const sub = rs.filter(r => String(r[from.x]) === c && (g == null || String(r[from.by]) === g));
-          const v = agg(sub.map(r => r[y]), how);
-          return v == null ? 0 : v;
+          return sub.length ? agg(sub.map(r => r[y]), how) : null;
         });
         series.push({ name, values });
       }
