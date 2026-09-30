@@ -121,8 +121,9 @@ export function renderReportHtml(report, { datasets, baseDir, highlight } = {}) 
   const idOf = key => { if (!ids.has(key)) ids.set(key, `s-${ids.size + 1}`); return ids.get(key); };
   const ctx = { datasets, baseDir, nextId: () => `mpc${++n}` };
   const badgeOf = (tab, s) => {
-    if (!highlight || s.cycle !== highlight.cycle) return null;
-    return highlight.newKeys.has(sectionKey(tab.id, s.title)) ? 'new' : 'changed';
+    const key = sectionKey(tab.id, s.title);
+    if (!highlight || !highlight.touched?.has(key)) return null;
+    return highlight.newKeys.has(key) ? 'new' : 'changed';
   };
   const changed = [];
   const defaultId = highlight ? 'meeting' : report.tabs[0]?.id;

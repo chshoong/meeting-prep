@@ -32,7 +32,7 @@ title: 결과
 ---
 section: 방법별 Test AP
 kicker: RESULTS
-cycle: 2026-10-06       # 이 섹션을 만들거나 크게 고친 사이클 (미팅 날짜)
+cycle: 2026-10-06       # 이 섹션을 만들거나 크게 고친 날짜 (강조판은 지난 강조판 이후 날짜의 섹션을 표시)
 archived: false         # true면 탭 아래 "이전 결과"로
 ---
 ```

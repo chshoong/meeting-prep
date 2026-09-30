@@ -83,14 +83,19 @@ test('부품 오류는 블록·줄 번호와 함께 모이고 나머지는 그�
 });
 
 test('강조판: 이번 미팅 탭, NEW/변경 표시, 탭 점', () => {
-  const r = build({ highlight: { cycle: '2026-10-06', newKeys: new Set([sectionKey('results', '방법별 Test AP')]), meetingHtml: '<p>지난 피드백</p>' } });
+  const key = sectionKey('results', '방법별 Test AP');
+  const r = build({ highlight: { cycle: '2026-10-06', newKeys: new Set([key]), touched: new Set([key]), meetingHtml: '<p>지난 피드백</p>' } });
   assert.equal((r.html.match(/data-tab-btn="/g) ?? []).length, 4);
   assert.match(r.html, /data-tab-btn="meeting"[^>]*>이번 미팅/);
   assert.match(r.html, /<span class="badge new">NEW<\/span>/);
   assert.match(r.html, /data-tab-btn="results"[^>]*><span class="dot"><\/span>/);
   assert.match(r.html, /data-jump="results#/);
-  const changed = build({ highlight: { cycle: '2026-10-06', newKeys: new Set(), meetingHtml: '' } });
+  assert.equal((r.html.match(/<h2>[^<]*<span class="badge/g) ?? []).length, 1);
+  const changed = build({ highlight: { cycle: '2026-10-06', newKeys: new Set(), touched: new Set([key]), meetingHtml: '' } });
   assert.match(changed.html, /<span class="badge changed">변경<\/span>/);
+  const none = build({ highlight: { cycle: '2026-10-06', newKeys: new Set(), touched: new Set(), meetingHtml: '' } });
+  assert.doesNotMatch(none.html, /<h2>[^<]*<span class="badge/);
+  assert.match(none.html, /이번 사이클에 바뀐 섹션이 없어요/);
 });
 
 test('섹션 앵커는 제목 앞부분이 같아도 겹치지 않고, 이동 링크는 자기 섹션을 가리킨다', () => {
@@ -100,7 +105,8 @@ test('섹션 앵커는 제목 앞부분이 같아도 겹치지 않고, 이동 �
     datasets: {},
     tabs: [{ id: 'results-long-tab-id', title: '결과', line: 1, sections: [sec('실험 1 결과'), sec('실험 2 결과')] }],
   };
-  const r = renderReportHtml(report, { datasets: {}, baseDir: '.', highlight: { cycle: '2026-10-06', newKeys: new Set(), meetingHtml: '' } });
+  const touched = new Set(report.tabs[0].sections.map(s => sectionKey('results-long-tab-id', s.title)));
+  const r = renderReportHtml(report, { datasets: {}, baseDir: '.', highlight: { cycle: '2026-10-06', newKeys: new Set(), touched, meetingHtml: '' } });
   const ids = [...r.html.matchAll(/<section class="sec" id="([^"]+)"/g)].map(m => m[1]);
   assert.equal(ids.length, 2);
   assert.notEqual(ids[0], ids[1]);

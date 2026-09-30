@@ -70,8 +70,29 @@ test('강조판: 처음엔 모두 NEW, 다음 사이클엔 전에 있던 섹션�
 
 test('강조판: 바뀐 섹션이 없으면 경고', async () => {
   const dir = makeSampleReport();
-  const r = await renderReport(path.join(dir, 'report.md'), { highlight: '2030-01-01', browser: null });
+  const md = path.join(dir, 'report.md');
+  const first = await renderReport(md, { highlight: '2026-10-06', browser: null });
+  assert.ok(!first.warnings.some(w => /바뀐 섹션이 없어요/.test(w)));
+  const r = await renderReport(md, { highlight: '2026-10-10', browser: null });
   assert.ok(r.warnings.some(w => /바뀐 섹션이 없어요/.test(w)));
+});
+
+test('강조판: 사이클은 직전 강조판 이후 ~ 이번 강조판 날짜 범위', async () => {
+  const badged = html => /<h2>방법별 Test AP<span class="badge/.test(html);
+  const make = () => {
+    const dir = makeSampleReport();
+    const md = path.join(dir, 'report.md');
+    fs.writeFileSync(md, fs.readFileSync(md, 'utf8').replace('cycle: 2026-10-06', 'cycle: 2026-10-01'), 'utf8');
+    return md;
+  };
+  const alone = await renderReport(make(), { highlight: '2026-10-06', browser: null });
+  assert.equal(alone.ok, true, JSON.stringify(alone.errors));
+  assert.ok(badged(fs.readFileSync(alone.outputs.html, 'utf8')));
+  const md = make();
+  await renderReport(md, { highlight: '2026-10-03', browser: null });
+  const later = await renderReport(md, { highlight: '2026-10-06', browser: null });
+  assert.ok(!badged(fs.readFileSync(later.outputs.html, 'utf8')));
+  assert.ok(later.warnings.some(w => /바뀐 섹션이 없어요/.test(w)));
 });
 
 test('CLI: JSON과 종료 코드', () => {

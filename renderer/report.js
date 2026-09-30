@@ -35,8 +35,11 @@ function readState(dir) {
   }
 }
 
-function sectionsWithCycle(report, cycle) {
-  return report.tabs.flatMap(t => t.sections.filter(s => !s.archived && s.cycle === cycle).map(s => sectionKey(t.id, s.title)));
+// 이번 사이클에 손댄 섹션: 직전 강조판 날짜(lower) < cycle <= 이번 강조판 날짜. 직전 강조판이 없으면 아래 한계가 없다.
+function touchedSections(report, lower, highlight) {
+  return report.tabs.flatMap(t => t.sections
+    .filter(s => !s.archived && s.cycle && s.cycle <= highlight && (lower == null || s.cycle > lower))
+    .map(s => sectionKey(t.id, s.title)));
 }
 
 async function previews(htmlPath, dir, count, browser) {
@@ -67,15 +70,16 @@ export async function renderReport(mdPath, { out, highlight, feedback, log, prev
   if (highlight) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(highlight)) return { ok: false, errors: [{ block: 0, line: 0, message: '--highlight는 YYYY-MM-DD 형식이어야 해요' }], warnings, outputs: {}, size: 0 };
     const earlier = Object.keys(state.highlights).filter(c => c < highlight).sort();
-    const prev = new Set(earlier.length ? state.highlights[earlier.at(-1)] : []);
-    const touched = sectionsWithCycle(report, highlight);
+    const lower = earlier.at(-1);
+    const prev = new Set(lower != null ? state.highlights[lower] : []);
+    const touched = touchedSections(report, lower, highlight);
     if (!touched.length) warnings.push('이번 사이클에 바뀐 섹션이 없어요');
     let meetingHtml = '';
     if (feedback && fs.existsSync(feedback)) {
       const items = todoStatus(fs.readFileSync(feedback, 'utf8'), log && fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '');
       if (items.length) meetingHtml = `<h3>지난 피드백 반영 현황</h3>${renderComponent({ type: 'checklist', items, block: 0, line: 0, body: '' }, { datasets, baseDir: dir, nextId: () => 'mpm' }).html}`;
     }
-    hl = { cycle: highlight, newKeys: new Set(touched.filter(k => !prev.has(k))), meetingHtml };
+    hl = { cycle: highlight, newKeys: new Set(touched.filter(k => !prev.has(k))), touched: new Set(touched), meetingHtml };
   }
 
   const r = renderReportHtml(report, { datasets, baseDir: dir, highlight: hl });
