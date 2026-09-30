@@ -18,7 +18,7 @@ function textObjects(e) {
           color: r.color ?? e.color,
           fontSize: pt(e.size),
           fontFace: FONT.face,
-          ...(p.bullet ? { bullet: { indent: 18 }, indentLevel: p.level ?? 0 } : {}),
+          ...(p.bullet && k === 0 ? { bullet: { indent: 18 }, indentLevel: p.level ?? 0 } : {}),
           paraSpaceAfter: last ? 0 : pt(e.paraSpace ?? 0),
           breakLine: !last && k === p.runs.length - 1,
         },
@@ -61,7 +61,7 @@ const PAINT = {
     s.addShape(pres.ShapeType.line, { x: inch(e.x), y: inch(e.y + e.h / 2), w: inch(e.w), h: 0, line: { color: e.color, width: 3, endArrowType: 'triangle' } });
   },
   text(pres, s, e) {
-    s.addText(textObjects(e), { ...pos(e), margin: 0, align: e.align, valign: e.valign, lineSpacingMultiple: e.lineHeight, fontFace: FONT.face, color: e.color });
+    s.addText(textObjects(e), { ...pos(e), margin: 0, align: e.align ?? 'left', valign: e.valign, lineSpacingMultiple: e.lineHeight, fontFace: FONT.face, color: e.color });
   },
   image(pres, s, e) {
     s.addImage({ data: `${e.img.mime};base64,${e.img.data.toString('base64')}`, ...pos(e) });
@@ -109,6 +109,7 @@ const PAINT = {
       s.addChart(pres.charts.SCATTER, data, { ...common, chartColors: colors, lineSize: 0, lineDataSymbol: 'circle', lineDataSymbolSize: 10, showValue: false });
       return;
     }
+    common.catAxisLabelPos = 'low';
     const data = spec.series.map(x => ({ name: x.name, labels: spec.categories, values: x.values }));
     const colors = spec.series.map(x => x.color);
     if (spec.type === 'line') {
@@ -118,6 +119,8 @@ const PAINT = {
     }
   },
 };
+
+export const PAINTED_KINDS = Object.keys(PAINT);
 
 export async function paintPptx(pages) {
   const pres = new PptxGenJS();

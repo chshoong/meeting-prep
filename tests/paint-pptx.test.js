@@ -7,7 +7,7 @@ import { parseDeck } from '../renderer/parse.js';
 import { resolveCharts } from '../renderer/chart-data.js';
 import { resolveImages } from '../renderer/images.js';
 import { layoutDeck } from '../renderer/layout.js';
-import { paintPptx } from '../renderer/paint-pptx.js';
+import { paintPptx, PAINTED_KINDS } from '../renderer/paint-pptx.js';
 import { makeSampleDeckV2 } from './helpers.js';
 
 async function build(text, dir) {
@@ -64,4 +64,30 @@ test('그림이 있는 슬라이드는 <p:pic>', async () => {
   const dir = makeSampleDeckV2();
   const { read } = await build(fs.readFileSync(path.join(dir, 'deck.md'), 'utf8'), dir);
   assert.match(await read('ppt/slides/slide6.xml'), /<p:pic>/);
+});
+
+test('문단당 글머리표 하나, 정렬 명시', async () => {
+  const el = { kind: 'text', x: 10, y: 10, w: 500, h: 200, size: 20, weight: 400, color: '111111', lineHeight: 1.2, valign: 'top',
+    paras: [{ bullet: true, runs: [{ text: 'a' }, { text: 'b', bold: true }, { text: 'c' }] }] };
+  const zip = await JSZip.loadAsync(await paintPptx([{ elements: [el] }]));
+  const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+  assert.equal((xml.match(/<a:buChar/g) ?? []).length, 1);
+  assert.match(xml, /algn="l"/);
+});
+
+test('막대 차트 범주 라벨은 low', async () => {
+  const dir = makeSampleDeckV2();
+  const text = ['---', 'layout: chart', 'title: 막대', 'chart:', '  type: bar', '  categories: [a, b]', '  series:', '    - { name: s, values: [-0.03, 0.08] }', '---', ''].join('\n');
+  const { names, read } = await build(text, dir);
+  const c = names.find(n => /^ppt\/charts\/chart\d+\.xml$/.test(n));
+  assert.match(await read(c), /<c:tickLblPos val="low"\/>/);
+});
+
+test('샘플의 모든 요소 종류에 화가가 있다', () => {
+  const dir = makeSampleDeckV2();
+  const { deck, slides } = parseDeck(fs.readFileSync(path.join(dir, 'deck.md'), 'utf8'));
+  resolveImages(slides, dir);
+  resolveCharts(slides, dir);
+  const { pages } = layoutDeck(slides, { ...deck, logo: null });
+  for (const p of pages) for (const e of p.elements) assert.ok(PAINTED_KINDS.includes(e.kind), e.kind);
 });
