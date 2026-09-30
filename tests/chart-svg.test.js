@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chartSvg, chartScale } from '../renderer/chart-svg.js';
 import { normalizeChart } from '../renderer/chart-data.js';
+import { textWidth, SIZE } from '../renderer/style.js';
 
 const bar = normalizeChart({ type: 'bar', categories: ['CN7', 'RG3'], series: [
   { name: '베이스라인', values: [0.37, 0.30] }, { name: '선정 <모델>', values: [0.43, 0.38] }] }, '.');
@@ -27,6 +28,10 @@ test('음수 막대는 0선 아래로', () => {
   const svg = chartSvg(s, 400, 200);
   assert.equal((svg.match(/class="bar"/g) ?? []).length, 2);
   assert.match(svg, /class="zero"/);
+  const zeroY = Number(svg.match(/<line class="zero"[^>]*y1="([^"]+)"/)[1]);
+  const bars = [...svg.matchAll(/<rect class="bar"[^>]*y="([^"]+)"[^>]*height="([^"]+)"/g)].map(m => [Number(m[1]), Number(m[2])]);
+  assert.ok(Math.abs(bars[0][0] - zeroY) < 0.02);
+  assert.ok(Math.abs(bars[1][0] + bars[1][1] - zeroY) < 0.02);
 });
 
 test('선 차트: 점 수 = 계열 × 항목', () => {
@@ -49,4 +54,24 @@ test('산점도: 강조 점은 accent 색과 이름표', () => {
 test('yMin을 지정하면 축 시작이 그 값', () => {
   const s = normalizeChart({ type: 'bar', yMin: 0.2, categories: ['a'], series: [{ name: 'x', values: [0.5] }] }, '.');
   assert.equal(chartScale(s).min, 0.2);
+});
+
+test('yMin이 최댓값 이상이면 무시', () => {
+  const s = normalizeChart({ type: 'bar', yMin: 0.5, categories: ['a'], series: [{ name: 'x', values: [0.3] }] }, '.');
+  const sc = chartScale(s);
+  assert.ok(sc.min < sc.max);
+  assert.doesNotMatch(chartSvg(s, 400, 200), /NaN|Infinity/);
+});
+
+test('hbar 값 라벨이 오른쪽 끝에서 잘리지 않음', () => {
+  const s = normalizeChart({ type: 'hbar', categories: ['a', 'b'], series: [{ name: 'x', values: [1, 2] }] }, '.');
+  const w = 600;
+  const svg = chartSvg(s, w, 300);
+  const m = [...svg.matchAll(/<text x="([^"]+)"[^>]*text-anchor="start"[^>]*>([^<]+)</g)];
+  assert.ok(m.length > 0);
+  for (const [, x, t] of m) assert.ok(Number(x) + textWidth(t, SIZE.valueLabel, 700) <= w);
+});
+
+test('좌표는 소수 둘째 자리까지', () => {
+  assert.doesNotMatch(chartSvg(bar, 700, 260), /d.d{3,}/);
 });

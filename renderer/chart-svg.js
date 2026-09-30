@@ -1,4 +1,4 @@
-import { C, SIZE, FONT, niceScale } from './style.js';
+import { C, SIZE, FONT, niceScale, textWidth } from './style.js';
 
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const num = (v, d) => Number(v).toFixed(d);
@@ -7,9 +7,10 @@ const PAD = { l: 64, r: 20, t: 28, b: 44 };
 export function chartScale(spec) {
   if (spec.type === 'scatter') return niceScale(Math.min(...spec.points.map(p => p.y)), Math.max(...spec.points.map(p => p.y)));
   const vals = spec.series.flatMap(s => s.values);
-  const lo = Math.min(0, ...vals);
-  const sc = niceScale(spec.yMin ?? lo, Math.max(...vals));
-  return spec.yMin == null ? sc : { ...sc, min: spec.yMin };
+  const hi = Math.max(...vals);
+  const ym = spec.yMin != null && spec.yMin < hi ? spec.yMin : null;
+  const sc = niceScale(ym ?? Math.min(0, ...vals), hi);
+  return ym == null ? sc : { ...sc, min: ym };
 }
 
 function text(x, y, t, { size = SIZE.axis, color = C.faint, anchor = 'middle', weight = 500 } = {}) {
@@ -34,11 +35,16 @@ function tickDecimals(sc) {
 
 export function chartSvg(spec, w, h) {
   const x0 = PAD.l;
-  const x1 = w - PAD.r;
-  const y0 = PAD.t;
-  const y1 = h - PAD.b;
   const sc = chartScale(spec);
   const td = tickDecimals(sc);
+  let padR = PAD.r;
+  if (spec.type === 'hbar' && spec.valueLabels) {
+    const longest = Math.max(...spec.series.flatMap(s => s.values.map(v => textWidth(num(v, spec.decimals), SIZE.valueLabel, 700))));
+    padR = PAD.r + longest + 12;
+  }
+  const x1 = w - padR;
+  const y0 = PAD.t;
+  const y1 = h - PAD.b;
   let body = '';
 
   if (spec.type === 'hbar') {
@@ -106,5 +112,7 @@ export function chartSvg(spec, w, h) {
 
   const axes = (spec.yLabel ? `<text x="14" y="${(y0 + y1) / 2}" font-size="${SIZE.axis}" fill="#${C.muted}" text-anchor="middle" transform="rotate(-90 14 ${(y0 + y1) / 2})">${esc(spec.yLabel)}</text>` : '')
     + (spec.xLabel ? text((x0 + x1) / 2, h - 4, spec.xLabel, { color: C.muted }) : '');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'${FONT.face}','${FONT.fallback}',sans-serif">${body}${axes}</svg>`;
+  const r2 = v => Math.round(v * 100) / 100;
+  const out = (body + axes).replace(/(s[w-]+=")([^"]*)"/g, (m, a, v) => a + v.replace(/-?d+.d{3,}/g, n => r2(Number(n))) + '"');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="'${FONT.face}','${FONT.fallback}',sans-serif">${out}</svg>`;
 }
