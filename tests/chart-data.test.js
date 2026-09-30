@@ -70,3 +70,27 @@ test('resolveCharts: chart 슬라이드에 chartSpec, 오류는 슬라이드 번
   assert.equal(errors[0].slide, 2);
   assert.equal(errors[0].line, 9);
 });
+
+test('CP949(EUC-KR) CSV도 읽는다', () => {
+  const dir = tempDir('cp949');
+  fs.writeFileSync(path.join(dir, 'k.csv'), Buffer.from([0xB8, 0xF0, 0xB5, 0xA8, 0x2C, 0x61, 0x70, 0x0A, 0x41, 0x2C, 0x30, 0x2E, 0x35, 0x0A]));
+  const s = normalizeChart({ type: 'bar', data: 'k.csv', x: '모델', y: 'ap' }, dir);
+  assert.deepEqual(s.categories, ['A']);
+  assert.deepEqual(s.series[0].values, [0.5]);
+});
+
+test('강조 비교는 대소문자 무시, 일치하는 점이 없으면 오류', () => {
+  const dir = tempDir('강조');
+  fs.writeFileSync(path.join(dir, 'p.csv'), 'a,b,sel\n1,2,FALSE\n3,4, TRUE \n', 'utf8');
+  const raw = { type: 'scatter', data: 'p.csv', x: 'a', y: 'b', highlight: { column: 'sel', value: true } };
+  assert.deepEqual(normalizeChart(raw, dir).points.map(p => p.hi), [false, true]);
+  assert.throws(() => normalizeChart({ ...raw, highlight: { column: 'sel', value: 'maybe' } }, dir), /강조 조건\(highlight\)에 맞는 점이 없어요: sel = maybe/);
+});
+
+test('yMin 검증과 x/y 누락', () => {
+  assert.throws(() => normalizeChart({ type: 'bar', yMin: 'abc', categories: ['a'], series: [{ name: 'a', values: [1] }] }, '.'), /yMin은 숫자여야 해요/);
+  const dir = tempDir('xy');
+  fs.writeFileSync(path.join(dir, 'x.csv'), 'k,v\na,1\n', 'utf8');
+  assert.throws(() => normalizeChart({ type: 'bar', data: 'x.csv', y: 'v' }, dir), /x와 y 열 이름이 필요해요/);
+  assert.throws(() => normalizeChart({ type: 'bar', data: 'x.csv', x: 'k' }, dir), /x와 y 열 이름이 필요해요/);
+});

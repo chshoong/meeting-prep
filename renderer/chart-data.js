@@ -6,6 +6,7 @@ export const CHART_TYPES = ['bar', 'hbar', 'line', 'scatter'];
 const MAX_SERIES = 4;
 const MAX_CATS = 12;
 const MAX_POINTS = 500;
+const LIMIT_MSG = `차트는 계열 ${MAX_SERIES}개, 항목 ${MAX_CATS}개까지예요. 복잡한 그래프는 figure로 넣어주세요`;
 
 export function parseCsv(text) {
   const src = String(text).replace(/^\uFEFF/, '');
@@ -42,10 +43,21 @@ function toNumber(v, col, r) {
   return n;
 }
 
+function decodeText(buf) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buf);
+  } catch {
+    try { return new TextDecoder('euc-kr').decode(buf); } catch { return buf.toString('utf8'); }
+  }
+}
+
+const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
 function readTable(raw, baseDir) {
   const file = path.resolve(baseDir, String(raw.data));
   if (!fs.existsSync(file)) fail(`CSV 파일을 찾을 수 없어요: ${raw.data}`);
-  const { header, rows } = parseCsv(fs.readFileSync(file, 'utf8'));
+  const { header, rows } = parseCsv(decodeText(fs.readFileSync(file)));
+  if (raw.x == null || raw.y == null || list(raw.y).length === 0) fail('data를 쓸 때는 x와 y 열 이름이 필요해요');
   const col = name => {
     const i = header.indexOf(String(name));
     if (i < 0) fail(`'${name}' 열이 없어요. 있는 열: ${header.join(', ')}`);
@@ -58,6 +70,7 @@ export function normalizeChart(raw, baseDir) {
   if (!raw || typeof raw !== 'object') fail('chart 블록이 필요해요');
   const type = String(raw.type ?? 'bar');
   if (!CHART_TYPES.includes(type)) fail(`차트 type은 ${CHART_TYPES.join(', ')} 중 하나여야 해요`);
+  if (raw.yMin != null && !Number.isFinite(Number(raw.yMin))) fail('yMin은 숫자여야 해요');
   const base = {
     type,
     title: raw.title == null ? '' : String(raw.title),
@@ -75,7 +88,8 @@ export function normalizeChart(raw, baseDir) {
       const xs = t.col(raw.x).map((v, i) => toNumber(v, raw.x, i + 1));
       const ys = t.col(raw.y).map((v, i) => toNumber(v, raw.y, i + 1));
       const hiCol = raw.highlight?.column != null ? t.col(raw.highlight.column) : null;
-      points = xs.map((x, i) => ({ x, y: ys[i], hi: hiCol ? String(hiCol[i]).trim() === String(raw.highlight.value) : false }));
+      points = xs.map((x, i) => ({ x, y: ys[i], hi: hiCol ? same(hiCol[i], raw.highlight.value) : false }));
+      if (hiCol && !points.some(p => p.hi)) fail(`강조 조건(highlight)에 맞는 점이 없어요: ${raw.highlight.column} = ${raw.highlight.value}`);
     } else {
       points = list(raw.points).map((p, i) => ({ x: toNumber(p?.x, 'x', i + 1), y: toNumber(p?.y, 'y', i + 1), hi: Boolean(p?.highlight) }));
     }
@@ -105,9 +119,9 @@ export function normalizeChart(raw, baseDir) {
     });
   }
   if (!series.length) fail('차트에 계열이 없어요');
-  if (series.length > MAX_SERIES) fail(`차트는 계열 ${MAX_SERIES}개, 항목 ${MAX_CATS}개까지예요. 복잡한 그래프는 figure로 넣어주세요`);
+  if (series.length > MAX_SERIES) fail(LIMIT_MSG);
   if (!categories.length) fail('차트에 항목(categories)이 없어요');
-  if (categories.length > MAX_CATS) fail(`차트는 계열 ${MAX_SERIES}개, 항목 ${MAX_CATS}개까지예요. 복잡한 그래프는 figure로 넣어주세요`);
+  if (categories.length > MAX_CATS) fail(LIMIT_MSG);
   for (const s of series) {
     if (s.values.length !== categories.length) fail(`'${s.name}' 계열은 값이 ${categories.length}개여야 해요 (현재 ${s.values.length}개)`);
   }
