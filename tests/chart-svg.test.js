@@ -73,5 +73,10 @@ test('hbar 값 라벨이 오른쪽 끝에서 잘리지 않음', () => {
 });
 
 test('좌표는 소수 둘째 자리까지', () => {
-  assert.doesNotMatch(chartSvg(bar, 700, 260), /d.d{3,}/);
+  const noisy = /\d\.\d{3,}/;
+  assert.ok(noisy.test('1.2345'));
+  const hb = normalizeChart({ type: 'hbar', categories: ['a', 'b', 'c'], series: [{ name: 'x', values: [0.1, 0.27, 0.33] }] }, '.');
+  const ln = normalizeChart({ type: 'line', yLabel: 'y', xLabel: 'x', categories: ['1', '2', '3'], series: [{ name: 'a', values: [0.11, 0.27, 0.333] }] }, '.');
+  const sc = normalizeChart({ type: 'scatter', points: [{ x: 0.41, y: 0.35 }, { x: 0.463, y: 0.437, highlight: true }] }, '.');
+  for (const s of [bar, hb, ln, sc]) assert.ok(!noisy.test(chartSvg(s, 700, 263).replace(/>[^<]*</g, '><')), s.type); // text labels may legitimately show 3 decimals
 });
