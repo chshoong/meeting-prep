@@ -1,6 +1,6 @@
 ---
 name: setup
-description: meeting-prep의 허브·패키지·트랙을 자동으로 준비하고, "내 llm-wiki도 참고해줘", "논문 PDF 폴더 추가해줘", "이 폴더도 KAMP에 포함해줘", "허브 위치 바꿔줘" 같은 설정 요청을 처리한다. log, feedback, meeting 스킬이 시작할 때 먼저 사용한다.
+description: meeting-prep의 허브·패키지·트랙을 자동으로 준비하고, "이 폴더를 미팅 트랙으로 등록해줘", "새 프로젝트 등록해줘", "내 llm-wiki도 참고해줘", "논문 PDF 폴더 추가해줘", "이 폴더도 KAMP에 포함해줘", "허브 위치 바꿔줘" 같은 설정 요청을 처리한다. log, feedback, meeting 스킬이 시작할 때 먼저 사용한다.
 user-invocable: false
 ---
 
@@ -33,6 +33,6 @@ user-invocable: false
   - `source-add --track "<트랙>" --path "<폴더>"` (폴더를 말하지 않으면 현재 작업 폴더)
 - **허브 위치 변경** ("허브 위치 바꿔줘"):
   - 새 위치를 묻고 `hub-move --path "<새 위치>"`. `EXISTS`면 다른 위치를 고르게 한다.
-- **새 트랙 추가** ("새 프로젝트 등록해줘"): 1-3의 0개일 때와 같은 질문으로 `track-add`.
+- **새 트랙 추가** ("이 폴더를 미팅 트랙으로 등록해줘", "새 프로젝트 등록해줘"): 먼저 1의 준비(`ensure`)를 한 뒤, 1-3의 0개일 때와 같은 질문으로 `track-add`.
 
 외부 지식 소스 폴더에는 절대 쓰지 않는다.

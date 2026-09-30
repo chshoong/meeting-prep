@@ -1,6 +1,6 @@
 {
   "name": "meeting-prep",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
   "description": "대학원생 교수님 미팅 자료 자동 생성 (Claude Code 플러그인)",

@@ -101,6 +101,18 @@ figcaption { font-size: 13px; color: var(--muted); margin-top: 7px; }
 .cmd button:hover { background: var(--soft); }
 .cmd button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
+/* 처음 시작하기 */
+.first { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 12px; counter-reset: first; max-width: 860px; }
+.first li { counter-increment: first; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px 18px 64px; position: relative; min-width: 0; }
+.first li::before { content: counter(first); position: absolute; left: 20px; top: 18px; width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.first-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.first h3 { font-size: 18px; }
+.first .req, .first .opt { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 8px; }
+.first .req { background: var(--primary); color: #fff; }
+.first .opt { background: var(--soft); color: var(--muted); }
+.first p { color: var(--text2); font-size: 15px; margin-top: 8px; }
+.first p.say { color: var(--accent); font-weight: 600; font-size: 15.5px; }
+
 /* 말하기 표 */
 .tbl { margin-top: 24px; overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 560px; }
@@ -159,7 +171,7 @@ html { scroll-behavior: smooth; }
 </header>
 
 <nav class="toc" aria-label="목차"><div class="row">
-  <a href="#why">왜 쓰나</a><a href="#cycle">한 사이클</a><a href="#outputs">만들어지는 것</a><a href="#install">설치</a><a href="#use">사용법</a><a href="#files">파일 위치</a><a href="#faq">자주 묻는 것</a>
+  <a href="#why">왜 쓰나</a><a href="#cycle">한 사이클</a><a href="#outputs">만들어지는 것</a><a href="#install">설치</a><a href="#start">처음 시작하기</a><a href="#use">사용법</a><a href="#files">파일 위치</a><a href="#faq">자주 묻는 것</a>
 </div></nav>
 
 <main><div class="wrap">
@@ -250,8 +262,8 @@ html { scroll-behavior: smooth; }
       <div class="cmd"><pre id="cmd2">claude plugin install meeting-prep@meeting-prep-local</pre><button type="button" data-copy="cmd2">복사</button></div>
     </div>
     <div class="stepbox">
-      <h3><span class="n">2</span>새 채팅에서 시작</h3>
-      <p>플러그인은 채팅을 시작할 때 불러와요. 작업하던 폴더로 새 채팅을 열고 "기록해줘"라고 해보세요. 처음이면 필요한 패키지를 설치하고 허브 폴더를 만든 뒤, 이 폴더를 어떤 트랙 이름으로 등록할지 한 번만 물어요.</p>
+      <h3><span class="n">2</span>새 채팅 열기</h3>
+      <p>플러그인은 채팅을 시작할 때 불러와요. 설치한 뒤에는 꼭 새 채팅을 열고, 아래 "처음 시작하기"를 따라 하세요.</p>
     </div>
     <div class="stepbox">
       <h3><span class="n">3</span>새 버전 받기</h3>
@@ -260,6 +272,33 @@ html { scroll-behavior: smooth; }
       <div class="cmd"><pre id="cmd4">claude plugin update meeting-prep@meeting-prep-local</pre><button type="button" data-copy="cmd4">복사</button></div>
     </div>
   </div>
+</section>
+
+<section id="start">
+  <div class="eyebrow">First steps</div>
+  <h2>처음 시작하기</h2>
+  <p class="intro">작업하던 폴더(논문 코드나 프로젝트 폴더)로 새 채팅을 열고 아래 순서대로 말해 보세요. 1번만 하면 바로 쓸 수 있고, 2·3번은 해두면 첫 미팅 자료가 훨씬 좋아져요.</p>
+  <ol class="first">
+    <li>
+      <div class="first-head"><h3>이 폴더를 트랙으로 등록</h3><span class="req">필수</span></div>
+      <p class="say">"이 폴더를 미팅 트랙으로 등록해줘"</p>
+      <p>Claude가 이름(기본은 폴더 이름)과 종류(연구 / 프로젝트)를 한 번 물어요. 이때 허브 폴더와 필요한 패키지도 자동으로 준비돼요. 논문과 프로젝트를 같이 하면 폴더마다 한 번씩 등록하세요.</p>
+    </li>
+    <li>
+      <div class="first-head"><h3>참고할 논문·노트 연결</h3><span class="opt">선택</span></div>
+      <p class="say">"내 논문 PDF 폴더 C:\…\papers도 참고해줘"</p>
+      <p>미팅 자료에 선행연구 근거를 달 때 써요. llm-wiki 같은 노트 폴더도 돼요. 이 폴더는 읽기만 하고 고치지 않아요. 없으면 건너뛰세요.</p>
+    </li>
+    <li>
+      <div class="first-head"><h3>지난 미팅 피드백 넣기</h3><span class="opt">추천</span></div>
+      <p class="say">"지난 미팅 피드백 정리해줘" + 노션 메모나 녹음 텍스트 붙여넣기</p>
+      <p>교수님 말씀이 할 일 목록이 돼요. 다음 미팅 자료에 "지난 피드백 반영 현황"이 자동으로 들어가고, 작업을 기록할 때 어떤 할 일을 했는지도 같이 남아요.</p>
+    </li>
+    <li>
+      <div class="first-head"><h3>평소처럼 작업</h3></div>
+      <p>이제 분석하고 코딩하면 돼요. 결과가 나오면 Claude가 "💾 여기까지 기록해둘까요?"라고 먼저 물어요. 직접 "기록해줘"라고 해도 돼요. 미팅 전에 "이번 주 미팅 자료 만들어줘"라고 하면 끝이에요.</p>
+    </li>
+  </ol>
 </section>
 
 <section id="use">
@@ -326,7 +365,7 @@ html { scroll-behavior: smooth; }
   </div>
 </section>
 
-<footer>meeting-prep · Claude Code 플러그인 · 버전 0.4.1 · 소스와 문의: <a href="https://github.com/chshoong/meeting-prep">github.com/chshoong/meeting-prep</a></footer>
+<footer>meeting-prep · Claude Code 플러그인 · 버전 0.4.2 · 소스와 문의: <a href="https://github.com/chshoong/meeting-prep">github.com/chshoong/meeting-prep</a></footer>
 </div></main>
 
 <script>
