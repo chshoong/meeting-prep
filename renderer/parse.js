@@ -11,16 +11,17 @@ function str(v) {
 
 export function parseInline(text) {
   const runs = [];
-  const re = /\*\*(.+?)\*\*/g;
+  const re = /\*\*(.+?)\*\*|==(.+?)==/g;
+  const s = String(text);
   let last = 0;
   let m;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) runs.push({ text: text.slice(last, m.index), bold: false });
-    runs.push({ text: m[1], bold: true });
+  while ((m = re.exec(s)) !== null) {
+    if (m.index > last) runs.push({ text: s.slice(last, m.index), bold: false, pink: false });
+    runs.push(m[1] !== undefined ? { text: m[1], bold: true, pink: false } : { text: m[2], bold: false, pink: true });
     last = re.lastIndex;
   }
-  if (last < text.length) runs.push({ text: text.slice(last), bold: false });
-  return runs.length ? runs : [{ text: '', bold: false }];
+  if (last < s.length) runs.push({ text: s.slice(last), bold: false, pink: false });
+  return runs.length ? runs : [{ text: '', bold: false, pink: false }];
 }
 
 export function parseList(src) {

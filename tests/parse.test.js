@@ -59,11 +59,15 @@ test('CRLF와 BOM이 있어도 LF와 같은 결과', () => {
   assert.deepEqual(parseDeck(crlf), parseDeck(sample));
 });
 
-test('parseInline: **굵게** 구간 분리', () => {
+test('parseInline: **굵게**와 ==분홍== 구간 분리', () => {
   assert.deepEqual(parseInline('a **b** c'), [
-    { text: 'a ', bold: false }, { text: 'b', bold: true }, { text: ' c', bold: false },
+    { text: 'a ', bold: false, pink: false }, { text: 'b', bold: true, pink: false }, { text: ' c', bold: false, pink: false },
   ]);
-  assert.deepEqual(parseInline('plain'), [{ text: 'plain', bold: false }]);
+  assert.deepEqual(parseInline('x ==y== **z**'), [
+    { text: 'x ', bold: false, pink: false }, { text: 'y', bold: false, pink: true },
+    { text: ' ', bold: false, pink: false }, { text: 'z', bold: true, pink: false },
+  ]);
+  assert.deepEqual(parseInline('plain'), [{ text: 'plain', bold: false, pink: false }]);
 });
 
 test('parseList: 글머리표가 아닌 줄은 bullet=false', () => {
