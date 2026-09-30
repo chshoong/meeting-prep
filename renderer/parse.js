@@ -168,7 +168,7 @@ function buildSlide(index, block, meta, fail) {
           return fail(`표의 ${r + 1}번째 행은 칸이 ${n}개여야 합니다 (현재 ${Array.isArray(row) ? row.length : 0}개)`);
         }
       }
-      const highlight = Array.isArray(meta.highlight) ? meta.highlight.map(Number).filter(Number.isInteger) : [];
+      const highlight = Array.isArray(meta.highlight) ? meta.highlight.filter(x => typeof x === 'number' && Number.isInteger(x) && x >= 1 && x <= meta.rows.length) : [];
       return { ...slide, columns: meta.columns.map(str), rows: meta.rows.map(row => row.map(str)), highlight };
     }
     case 'checklist': {
@@ -192,24 +192,27 @@ export function parseDeck(text) {
   const slides = [];
   let deck = { ...EMPTY_DECK };
   let section = '';
+  let n = 0;
   blocks.forEach((block, k) => {
-    const index = slides.length + 1;
+    const index = n + 1;
     const fail = message => { errors.push({ slide: index, line: block.line, message }); return null; };
     let meta;
     try {
       meta = yamlLoad(block.yaml) ?? {};
     } catch (e) {
+      n++;
       const offset = e.mark ? e.mark.line + 1 : 0;
       errors.push({ slide: index, line: block.line + offset, message: `YAML 형식 오류: ${e.reason ?? e.message}` });
       return;
     }
-    if (typeof meta !== 'object' || Array.isArray(meta)) { fail('머리말은 key: value 형식이어야 합니다'); return; }
-    if (meta.deck != null && meta.layout == null) {
+    if (typeof meta !== 'object' || Array.isArray(meta)) { n++; fail('머리말은 key: value 형식이어야 합니다'); return; }
+    if ('deck' in meta && meta.layout == null) {
       if (k !== 0) { fail('deck 블록은 맨 앞에만 둘 수 있어요'); return; }
       const d = meta.deck && typeof meta.deck === 'object' ? meta.deck : {};
       deck = { brand: str(d.brand), logo: str(d.logo), author: str(d.author), affiliation: str(d.affiliation), date: str(d.date) };
       return;
     }
+    n++;
     const slide = buildSlide(index, block, meta, fail);
     if (!slide) return;
     if (slide.layout === 'section') section = slide.title.replace(/\*\*|==/g, '');

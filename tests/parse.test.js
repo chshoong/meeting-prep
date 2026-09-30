@@ -158,3 +158,26 @@ test('오류: kpis·cards 개수, deck 블록 위치, chart 블록 없음', () =
   const manyKpi = '---\nlayout: chart\ntitle: t\nchart: { type: bar }\nkpis: [{label: a, value: "1"},{label: b, value: "1"},{label: c, value: "1"},{label: d, value: "1"}]\n---\n';
   assert.match(parseDeck(manyKpi).errors[0].message, /3개까지/);
 });
+
+test('오류 번호: 실패한 슬라이드 뒤에도 번호가 어긋나지 않음', () => {
+  const ok = '---\nlayout: bullets\ntitle: t\n---\n- a\n';
+  const bad = '---\nlayout: pie\ntitle: x\n---\n';
+  const { errors, slides } = parseDeck([ok, bad, bad, ok].join(''));
+  assert.deepEqual(errors.map(e => e.slide), [2, 3]);
+  assert.deepEqual(slides.map(s => s.index), [1, 4]);
+  const withDeck = parseDeck('---\ndeck:\n  brand: x\n---\n' + [bad, ok].join(''));
+  assert.deepEqual(withDeck.errors.map(e => e.slide), [1]);
+  assert.equal(withDeck.slides[0].index, 2);
+});
+
+test('빈 deck: 값이 없어도 빈 머리말로 처리', () => {
+  const { deck, slides, errors } = parseDeck('---\ndeck:\n---\n---\nlayout: bullets\ntitle: t\n---\n- a\n');
+  assert.deepEqual(errors, []);
+  assert.deepEqual(deck, { brand: '', logo: '', author: '', affiliation: '', date: '' });
+  assert.equal(slides[0].index, 1);
+});
+
+test('table highlight: 1..행 수 범위의 정수만', () => {
+  const t = '---\nlayout: table\ntitle: t\ncolumns: [a]\nrows: [[x], [y]]\nhighlight: [0, 2, 9, true]\n---\n';
+  assert.deepEqual(parseDeck(t).slides[0].highlight, [2]);
+});
