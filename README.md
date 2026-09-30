@@ -27,6 +27,7 @@ claude plugin install meeting-prep@meeting-prep-local
 | 미팅 후 피드백 | "미팅 끝났어, 피드백 정리해줘" + 노션 메모나 녹음 텍스트 |
 | 미팅 자료 | "이번 주 미팅 자료 만들어줘" |
 | 설정 바꾸기 | "내 llm-wiki도 참고해줘", "이 폴더도 KAMP에 포함해줘", "허브 위치 바꿔줘" |
+| 웹 보고서 | "보고서 업데이트해줘" — 조건 비교·필터가 되는 HTML 한 파일(인터넷 없이 열림) |
 
 처음 쓰면 허브(`~/meeting-hub`)가 자동으로 만들어지고, 이 폴더를 어떤 이름으로 등록할지 한 번만 물어요.
 슬래시 명령(`/meeting-prep:log`, `/meeting-prep:feedback`, `/meeting-prep:meeting`)은 지름길로 쓸 수 있어요.
@@ -63,6 +64,13 @@ node renderer/render.js <deck.md> --formats pptx,pdf --preview
 - PowerPoint에서도 같은 글꼴로 보려면 [Pretendard](https://github.com/orioncactus/pretendard/releases)를 설치하세요.
 
 `deck.md` 형식은 `skills/meeting/deck-format.md`를 보세요.
+
+```
+node renderer/report.js <report.md> --preview
+node renderer/report.js <report.md> --highlight 2026-10-06 --feedback feedback.md --log log.md --out report-2026-10-06.html
+```
+
+`report.md` 형식은 `skills/report/report-format.md`를 보세요.
 
 ## 개발
 
