@@ -10,12 +10,23 @@ Claude와 작업하면서 로그를 남기고, 미팅이 끝나면 피드백을 
 
 ## 설치
 
+터미널에서 두 줄을 실행한 뒤, 작업하던 폴더에서 **새 채팅**을 여세요.
+
 ```
-claude plugin marketplace add <이 폴더 경로>
+claude plugin marketplace add chshoong/meeting-prep
 claude plugin install meeting-prep@meeting-prep-local
 ```
 
-한 번만 써보려면: `claude --plugin-dir <이 폴더 경로>`
+필요한 패키지는 처음 쓸 때("기록해줘" 등) 자동으로 설치돼요.
+
+업데이트:
+
+```
+claude plugin marketplace update meeting-prep-local
+claude plugin update meeting-prep@meeting-prep-local
+```
+
+사용 안내 페이지: https://chshoong.github.io/meeting-prep/
 
 ## 사용법
 
