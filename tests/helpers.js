@@ -23,3 +23,12 @@ export function makeSampleDeck() {
   fs.writeFileSync(path.join(dir, 'assets', 'plot.png'), PNG_1x1);
   return dir;
 }
+
+export function makeSampleDeckV2() {
+  const dir = tempDir('샘플 덱 v2');
+  fs.copyFileSync(path.join(FIXTURES, 'sample-deck-v2.md'), path.join(dir, 'deck.md'));
+  fs.mkdirSync(path.join(dir, 'assets'));
+  fs.writeFileSync(path.join(dir, 'assets', 'plot.png'), PNG_1x1);
+  fs.writeFileSync(path.join(dir, 'assets', 'metrics.csv'), 'product,baseline_ap,selected_ap\nCN7,0.37,0.43\nRG3,0.30,0.38\n', 'utf8');
+  return dir;
+}
