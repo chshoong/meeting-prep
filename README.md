@@ -5,7 +5,8 @@ Claude와 작업하면서 로그를 남기고, 미팅이 끝나면 피드백을 
 
 ## 필요한 것
 
-- Node.js 20 이상
+- Node.js 20 이상 (`node -v`로 확인. 없으면 https://nodejs.org 에서 LTS 설치, 윈도우는 `winget install OpenJS.NodeJS.LTS`)
+- 터미널의 `claude` 명령 (`claude --version`으로 확인. 데스크톱 앱만 있으면 `npm install -g @anthropic-ai/claude-code` 후 `claude`로 한 번 로그인)
 - PDF를 만들려면 Chrome 또는 Edge (윈도우에는 Edge가 기본으로 있음)
 
 ## 설치

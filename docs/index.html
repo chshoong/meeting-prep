@@ -248,25 +248,36 @@ html { scroll-behavior: smooth; }
 
 <section id="install">
   <div class="eyebrow">Install</div>
-  <h2>설치는 한 번만</h2>
-  <div class="need">
-    <span><b>Claude Code</b> 데스크톱 앱 또는 터미널</span>
-    <span><b>Node.js</b> 20 이상</span>
-    <span><b>Edge 또는 Chrome</b> (PDF·미리보기용, 윈도우는 Edge 기본 설치)</span>
-  </div>
+  <h2>설치</h2>
+  <p class="intro">처음 한 번만 하면 돼요. 명령은 PowerShell(윈도우)이나 터미널(맥)에 붙여 넣고 Enter를 누르세요.</p>
   <div class="install">
     <div class="stepbox">
-      <h3><span class="n">1</span>터미널에서 두 줄 실행</h3>
-      <p>데스크톱 앱을 쓴다면 앱 안의 터미널이나 PowerShell에서 실행하면 돼요.</p>
-      <div class="cmd"><pre id="cmd1">claude plugin marketplace add chshoong/meeting-prep</pre><button type="button" data-copy="cmd1">복사</button></div>
-      <div class="cmd"><pre id="cmd2">claude plugin install meeting-prep@meeting-prep-local</pre><button type="button" data-copy="cmd2">복사</button></div>
+      <h3><span class="n">1</span>Node.js 확인과 설치</h3>
+      <p>아래 명령을 실행해서 <code>v20</code> 이상(예: <code>v22.11.0</code>)이 나오면 다음 단계로 가세요.</p>
+      <div class="cmd"><pre id="cmd0">node -v</pre><button type="button" data-copy="cmd0">복사</button></div>
+      <p>"찾을 수 없다"는 오류가 나오거나 버전이 20보다 낮으면 설치해요. <a href="https://nodejs.org/ko/download" target="_blank" rel="noopener">nodejs.org</a>에서 <b>LTS</b> 설치 파일을 받아 기본 설정으로 설치하거나, 윈도우라면 아래 한 줄로 설치할 수 있어요.</p>
+      <div class="cmd"><pre id="cmd0b">winget install OpenJS.NodeJS.LTS</pre><button type="button" data-copy="cmd0b">복사</button></div>
+      <p>맥은 <code>brew install node</code>. 설치한 뒤에는 <b>터미널 창을 닫았다가 새로 열고</b> <code>node -v</code>로 다시 확인하세요.</p>
     </div>
     <div class="stepbox">
-      <h3><span class="n">2</span>새 채팅 열기</h3>
+      <h3><span class="n">2</span>claude 명령 확인과 설치</h3>
+      <p>버전 번호가 나오면 다음 단계로 가세요.</p>
+      <div class="cmd"><pre id="cmdc">claude --version</pre><button type="button" data-copy="cmdc">복사</button></div>
+      <p>Claude 데스크톱 앱만 설치했다면 "찾을 수 없다"고 나올 수 있어요. 그러면 Node.js로 Claude Code CLI를 설치하고, 터미널을 새로 연 뒤 <code>claude</code>를 한 번 실행해 로그인하세요. 설치한 플러그인은 데스크톱 앱에서도 똑같이 쓸 수 있어요.</p>
+      <div class="cmd"><pre id="cmdc2">npm install -g @anthropic-ai/claude-code</pre><button type="button" data-copy="cmdc2">복사</button></div>
+    </div>
+    <div class="stepbox">
+      <h3><span class="n">3</span>플러그인 설치 (두 줄)</h3>
+      <div class="cmd"><pre id="cmd1">claude plugin marketplace add chshoong/meeting-prep</pre><button type="button" data-copy="cmd1">복사</button></div>
+      <div class="cmd"><pre id="cmd2">claude plugin install meeting-prep@meeting-prep-local</pre><button type="button" data-copy="cmd2">복사</button></div>
+      <p>PDF와 미리보기 이미지는 Edge나 Chrome으로 만들어요. 윈도우에는 Edge가 기본으로 있어서 따로 할 일이 없어요.</p>
+    </div>
+    <div class="stepbox">
+      <h3><span class="n">4</span>새 채팅 열기</h3>
       <p>플러그인은 채팅을 시작할 때 불러와요. 설치한 뒤에는 꼭 새 채팅을 열고, 아래 "처음 시작하기"를 따라 하세요.</p>
     </div>
     <div class="stepbox">
-      <h3><span class="n">3</span>새 버전 받기</h3>
+      <h3><span class="n">+</span>새 버전 받기</h3>
       <p>업데이트가 나오면 두 줄을 실행하고 새 채팅을 열어요.</p>
       <div class="cmd"><pre id="cmd3">claude plugin marketplace update meeting-prep-local</pre><button type="button" data-copy="cmd3">복사</button></div>
       <div class="cmd"><pre id="cmd4">claude plugin update meeting-prep@meeting-prep-local</pre><button type="button" data-copy="cmd4">복사</button></div>
