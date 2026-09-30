@@ -86,6 +86,18 @@ function selects(ds, dims, chosen, side) {
   }).join('');
 }
 
+const count = (s, re) => (s.match(re) ?? []).length;
+
+// 닫히지 않은 태그가 뒤의 내용이나 실행기를 삼키지 않게 막는다
+function checkClosed(body) {
+  const s = String(body);
+  if (count(s, /<script\b/gi) !== count(s, /<\/script/gi)) throw new Error('custom 부품의 <script> 태그가 닫히지 않았어요');
+  if (count(s, /<!--/g) > count(s, /-->/g)) throw new Error('custom 부품의 <!-- 주석이 닫히지 않았어요');
+  for (const tag of ['style', 'textarea', 'title', 'template']) {
+    if (count(s, new RegExp(`<${tag}\\b`, 'gi')) > count(s, new RegExp(`</${tag}`, 'gi'))) throw new Error(`custom 부품의 <${tag}> 태그가 닫히지 않았어요`);
+  }
+}
+
 const RENDER = {
   text: c => `<div class="c-text">${markdownHtml(c.body)}</div>`,
 
@@ -163,6 +175,7 @@ const RENDER = {
   },
 
   custom: (c, ctx) => {
+    checkClosed(c.body);
     const bad = externalUrl(c.body);
     if (bad) throw new Error(`custom 부품에 외부 주소가 있어요: ${bad}. 인터넷 없이 열려야 하니 파일 안의 내용만 써주세요`);
     const id = ctx.nextId();

@@ -92,3 +92,18 @@ test('custom: 스크립트 분리, 외부 주소 거부', () => {
   }
   assert.equal(externalUrl('<img src="data:image/png;base64,AAA">'), null);
 });
+
+test('custom: 닫히지 않은 태그는 오류', () => {
+  const cases = [
+    ['<div>x</div><script>el.textContent = 1;', /<script> 태그가 닫히지 않았어요/],
+    ['<SCRIPT>a()</script><script>b()', /<script> 태그가 닫히지 않았어요/],
+    ['<div>x</div></script>', /<script> 태그가 닫히지 않았어요/],
+    ['<!-- 메모 <div>x</div>', /<!-- 주석이 닫히지 않았어요/],
+    ['<style>.a{color:red}', /<style> 태그가 닫히지 않았어요/],
+    ['<textarea>x', /<textarea> 태그가 닫히지 않았어요/],
+    ['<Title>x', /<title> 태그가 닫히지 않았어요/],
+    ['<template><p>x</p>', /<template> 태그가 닫히지 않았어요/],
+  ];
+  for (const [body, re] of cases) assert.throws(() => R({ type: 'custom', body }), re, body);
+  assert.doesNotThrow(() => R({ type: 'custom', body: '<!-- a --><style>.a{}</style><template><p></p></template><textarea></textarea><script>1</script>' }));
+});
