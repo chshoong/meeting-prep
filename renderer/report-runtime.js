@@ -60,6 +60,7 @@ export function runtimeMain(MPCalc, MPChart, MPViews) {
     const rows = MPCalc.where(ds.rows, filtersFor(el, c.from.dataset));
     const t = MPCalc.tableFrom(rows, c.from, ds.meta);
     $('tbody', el).innerHTML = t.rows.length ? MPViews.tableBody(t.rows, c.highlight) : `<tr><td colspan="${t.columns.length}">${EMPTY}</td></tr>`;
+    $$('th[data-col]', el).forEach(th => { delete th.dataset.dir; });
     applySearch(el);
   }
 

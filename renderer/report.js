@@ -64,6 +64,8 @@ export async function renderReport(mdPath, { out, highlight, feedback, log, prev
   const { datasets, errors: dataErrors } = loadDatasets(report.datasets, dir);
   if (dataErrors.length) return { ok: false, errors: dataErrors.map(e => ({ block: 1, line: 1, message: e.message })), warnings: [], outputs: {}, size: 0 };
   const warnings = [];
+  if (feedback && !fs.existsSync(feedback)) warnings.push(`피드백 파일을 찾을 수 없어 반영 현황을 건너뛰었어요: ${feedback}`);
+  if (log && !fs.existsSync(log)) warnings.push(`로그 파일을 찾을 수 없어 진행 상태 없이 만들었어요: ${log}`);
 
   let hl;
   const state = readState(dir);

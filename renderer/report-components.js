@@ -28,8 +28,16 @@ export function markdownHtml(body) {
 const attr = obj => esc(JSON.stringify(obj));
 
 export function externalUrl(html) {
-  const m = String(html).match(/(?:\b(?:src|href|xlink:href)\s*=\s*["']?\s*|url\(\s*["']?\s*|@import\s+["']?\s*)((?:https?:)?\/\/[^\s"'()<>]*)/i);
-  return m ? m[1] : null;
+  const s = String(html);
+  const m = s.match(/(?:\b(?:src|href|xlink:href|poster|data|action)\s*=\s*["']?\s*|url\(\s*["']?\s*|@import\s+["']?\s*)((?:https?:)?\/\/[^\s"'()<>]*)/i);
+  if (m) return m[1];
+  for (const x of s.matchAll(/\bsrcset\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
+    for (const cand of (x[1] ?? x[2] ?? x[3]).split(',')) {
+      const url = cand.trim().split(/\s+/)[0];
+      if (/^(?:https?:)?\/\//i.test(url)) return url;
+    }
+  }
+  return null;
 }
 
 function dataset(ctx, name) {
@@ -42,6 +50,20 @@ function checkFields(ds, fields) {
   const known = [...ds.dims, ...ds.metrics];
   for (const f of fields.filter(Boolean)) {
     if (!known.includes(f)) throw new Error(`'${f}'은(는) 데이터셋 '${ds.name}'의 dims나 metrics에 없어요`);
+  }
+}
+
+function checkDims(ds, dims) {
+  for (const d of dims) {
+    if (!ds.dims.includes(d)) throw new Error(`'${d}'은(는) 데이터셋 '${ds.name}'의 dims에 없어요`);
+  }
+}
+
+// compare의 a, b, presets: 키는 비교할 dims 안에서, 값은 데이터에 있는 값만
+function checkSide(ds, dims, side, where) {
+  for (const [k, v] of Object.entries(side ?? {})) {
+    if (!dims.includes(k)) throw new Error(`compare의 ${where}에 있는 '${k}'은(는) 비교할 dims(${dims.join(', ')})에 없어요`);
+    if (!ds.levels[k].includes(String(v))) throw new Error(`compare의 ${where}에 있는 값 '${v}'은(는) 데이터셋 '${ds.name}'의 '${k}' 값에 없어요. 있는 값: ${ds.levels[k].join(', ')}`);
   }
 }
 
@@ -153,7 +175,11 @@ const RENDER = {
     const ds = dataset(ctx, c.dataset);
     const dims = c.dims ? list(c.dims).map(String) : ds.dims;
     const metrics = c.metrics ? list(c.metrics).map(String) : ds.metrics;
-    checkFields(ds, [...dims, ...metrics]);
+    checkDims(ds, dims);
+    checkFields(ds, metrics);
+    checkSide(ds, dims, c.a, 'a');
+    checkSide(ds, dims, c.b, 'b');
+    list(c.presets).forEach((p, i) => { checkSide(ds, dims, p?.a, `presets ${i + 1}번의 a`); checkSide(ds, dims, p?.b, `presets ${i + 1}번의 b`); });
     const first = Object.fromEntries(dims.map(d => [d, ds.levels[d][0]]));
     const a = { ...first, ...(c.a ?? {}) };
     const b = { ...first, ...(dims[0] && ds.levels[dims[0]][1] != null ? { [dims[0]]: ds.levels[dims[0]][1] } : {}), ...(c.b ?? {}) };
@@ -169,7 +195,7 @@ const RENDER = {
   filter: (c, ctx) => {
     const ds = dataset(ctx, c.dataset);
     const dims = c.dims ? list(c.dims).map(String) : ds.dims;
-    checkFields(ds, dims);
+    checkDims(ds, dims);
     const sel = dims.map(d => `<label>${esc(ds.meta[d]?.label ?? d)}<select name="${esc(d)}"><option value="*" selected>전체</option>${ds.levels[d].map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></label>`).join('');
     return `<div class="filter" data-mp="${attr({ kind: 'filter', dataset: c.dataset, dims })}"><span class="filter-title">필터</span>${sel}</div>`;
   },

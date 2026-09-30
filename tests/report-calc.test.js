@@ -58,6 +58,12 @@ test('tableFrom: 조합별 행, 자릿수, 평균과 표준편차', () => {
   assert.ok(Math.abs(t.raw[1][1] - 0.49) < 1e-9);
 });
 
+test('tableFrom: count 열은 소수 없이, 다른 통계는 지표 자릿수', () => {
+  const t = calc.tableFrom(rows, { x: 'method', y: ['ap'], show: ['mean', 'count'] }, meta);
+  assert.deepEqual(t.rows[0], ['A', '0.447', '3']);
+  assert.deepEqual(calc.tableFrom(rows, { x: 'method', y: ['ap'], agg: 'count' }, meta).rows[1], ['B', '2']);
+});
+
 test('compareSides: 차이와 better 방향', () => {
   const r = calc.compareSides(rows, { method: 'A', scenario: '1' }, { method: 'B', scenario: '1' }, ['ap', 'fp'], meta);
   assert.equal(r[0].a.n, 2);

@@ -76,6 +76,16 @@ test('compare: 조건 선택칸, 기본 선택, 첫 결과, 버튼', () => {
   assert.throws(() => R({ type: 'compare', dataset: 'runs', metrics: ['zzz'] }), /'zzz'/);
 });
 
+test('compare·filter: dims는 데이터셋 dims만, a/b 키는 비교 dims 안, 값은 데이터에 있는 값만', () => {
+  const x = ctx();
+  assert.throws(() => R({ type: 'compare', dataset: 'runs', dims: ['method', 'ap'] }, x), /'ap'은\(는\) 데이터셋 'runs'의 dims에 없어요/);
+  assert.throws(() => R({ type: 'filter', dataset: 'runs', dims: ['fp'] }, x), /'fp'은\(는\) 데이터셋 'runs'의 dims에 없어요/);
+  assert.throws(() => R({ type: 'compare', dataset: 'runs', dims: ['method'], a: { scenario: 'S1' } }, x), /compare의 a에 있는 'scenario'은\(는\) 비교할 dims\(method\)에 없어요/);
+  assert.throws(() => R({ type: 'compare', dataset: 'runs', b: { method: 'C' } }, x), /값 'C'은\(는\) 데이터셋 'runs'의 'method' 값에 없어요/);
+  assert.throws(() => R({ type: 'compare', dataset: 'runs', presets: [{ label: 'p', a: { scenario: 'S9' } }] }, x), /presets 1번의 a에 있는 값 'S9'/);
+  assert.doesNotThrow(() => R({ type: 'compare', dataset: 'runs', dims: ['method'], a: { method: 'B' }, presets: [{ label: 'p', b: { method: 'A' } }] }, x));
+});
+
 test('filter: 전체 선택지와 조건 값', () => {
   const h = R({ type: 'filter', dataset: 'runs', dims: ['scenario'] }).html;
   assert.match(h, /<option value="\*" selected>전체<\/option>/);
@@ -91,6 +101,17 @@ test('custom: 스크립트 분리, 외부 주소 거부', () => {
     assert.throws(() => R({ type: 'custom', body: bad }), /외부 주소/, bad);
   }
   assert.equal(externalUrl('<img src="data:image/png;base64,AAA">'), null);
+  assert.equal(externalUrl('<img srcset="a.png 1x, https://x/b.png 2x">'), 'https://x/b.png');
+  assert.equal(externalUrl("<img srcset='//cdn/a.png 1x'>"), '//cdn/a.png');
+  assert.equal(externalUrl('<source srcset=http://x/a.webp>'), 'http://x/a.webp');
+  assert.equal(externalUrl('<img srcset="data:image/png;base64,AAA 1x, b.png 2x">'), null);
+  assert.equal(externalUrl('<video poster="https://x/p.jpg"></video>'), 'https://x/p.jpg');
+  assert.equal(externalUrl('<object data="//x/o.svg"></object>'), '//x/o.svg');
+  assert.equal(externalUrl('<form action="https://x/post"></form>'), 'https://x/post');
+  assert.equal(externalUrl('<div data-mp="//x"></div>'), null);
+  for (const bad of ['<img srcset="https://x/a.png 2x">', '<video poster="//x/p.jpg">', '<object data="http://x/o">', '<form action="https://x">']) {
+    assert.throws(() => R({ type: 'custom', body: bad }), /외부 주소/, bad);
+  }
 });
 
 test('custom: 닫히지 않은 태그는 오류', () => {

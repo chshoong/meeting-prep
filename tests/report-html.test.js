@@ -5,6 +5,7 @@ import path from 'node:path';
 import { parseReport } from '../renderer/report-parse.js';
 import { loadDatasets } from '../renderer/report-data.js';
 import { renderReportHtml, sectionKey } from '../renderer/report-html.js';
+import { runtimeMain } from '../renderer/report-runtime.js';
 import { makeSampleReport } from './helpers.js';
 
 function build(opts = {}, mutate) {
@@ -46,6 +47,12 @@ test('페이지에 넣은 실행기 스크립트는 문법 오류가 없다', ()
   const body = scripts.at(-1)[1];
   assert.match(body, /mpReady/);
   assert.doesNotThrow(() => new Function(body));
+});
+
+test('실행기: 표를 다시 그리면 정렬 표시(data-dir)를 지운다', () => {
+  const src = runtimeMain.toString();
+  const draw = src.slice(src.indexOf('function drawTable'), src.indexOf('function sideValues'));
+  assert.match(draw, /\$\$\('th\[data-col\]', el\)\.forEach\(th => \{ delete th\.dataset\.dir; \}\)/);
 });
 
 test('외부 요청 없음: http(s), // 주소가 src/href/url/@import에 없다', () => {

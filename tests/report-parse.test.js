@@ -37,6 +37,7 @@ test('오류: 구조 위반과 필드 누락, 블록·줄 번호', () => {
     ['---\nreport: { title: T }\n---\n---\ntab: a\n---\n---\nsection: s\n---\n---\ncomponent: text\n---\n', /본문/],
     ['---\nreport: { title: T }\n---\n---\ntab: a\n---\n---\ntab: a\n---\n', /같은 tab id/],
     ['---\nreport: { title: T }\n---\n---\nfoo: 1\n---\n', /첫 키/],
+    ['---\nreport: { title: T }\n---\n---\ntab: meeting\n---\n', /tab id 'meeting'은 강조판이 쓰는 이름이라 쓸 수 없어요/],
   ];
   for (const [text, re] of cases) {
     const { errors } = parseReport(text);

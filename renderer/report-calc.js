@@ -95,8 +95,9 @@ export function makeCalc() {
     });
     const out = raw.map(r => r.map((v, i) => {
       if (i < keys.length) return v;
-      const y = ys[Math.floor((i - keys.length) / show.length)];
-      const d = meta && meta[y] && meta[y].decimals != null ? meta[y].decimals : 2;
+      const j = i - keys.length;
+      const y = ys[Math.floor(j / show.length)];
+      const d = show[j % show.length] === 'count' ? 0 : meta && meta[y] && meta[y].decimals != null ? meta[y].decimals : 2;
       return fmt(v, d);
     }));
     return { columns, rows: out, raw };

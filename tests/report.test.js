@@ -77,6 +77,18 @@ test('강조판: 바뀐 섹션이 없으면 경고', async () => {
   assert.ok(r.warnings.some(w => /바뀐 섹션이 없어요/.test(w)));
 });
 
+test('--feedback·--log 파일이 없으면 경로와 함께 경고', async () => {
+  const dir = makeSampleReport();
+  const fb = path.join(dir, '없는 피드백.md');
+  const log = path.join(dir, '없는 로그.md');
+  const r = await renderReport(path.join(dir, 'report.md'), { highlight: '2026-10-06', feedback: fb, log, browser: null });
+  assert.equal(r.ok, true, JSON.stringify(r.errors));
+  assert.ok(r.warnings.some(w => w.includes('피드백 파일을 찾을 수 없') && w.includes(fb)), JSON.stringify(r.warnings));
+  assert.ok(r.warnings.some(w => w.includes('로그 파일을 찾을 수 없') && w.includes(log)), JSON.stringify(r.warnings));
+  const quiet = await renderReport(path.join(dir, 'report.md'), { browser: null });
+  assert.ok(!quiet.warnings.some(w => /파일을 찾을 수 없/.test(w)));
+});
+
 test('강조판: 사이클은 직전 강조판 이후 ~ 이번 강조판 날짜 범위', async () => {
   const badged = html => /<h2>방법별 Test AP<span class="badge/.test(html);
   const make = () => {

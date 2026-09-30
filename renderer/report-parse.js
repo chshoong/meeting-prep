@@ -96,6 +96,7 @@ export function parseReport(text) {
     if ('tab' in meta) {
       const id = str(meta.tab);
       if (!/^[A-Za-z][\w-]*$/.test(id)) { fail('tab은 영문으로 시작하는 id여야 해요 (예: results)'); return; }
+      if (id === 'meeting') { fail("tab id 'meeting'은 강조판이 쓰는 이름이라 쓸 수 없어요"); return; }
       if (report.tabs.some(t => t.id === id)) { fail(`같은 tab id가 이미 있어요: ${id}`); return; }
       tab = { id, title: str(meta.title) || id, line: b.line, sections: [] };
       report.tabs.push(tab);
