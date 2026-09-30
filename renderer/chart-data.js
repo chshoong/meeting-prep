@@ -43,7 +43,7 @@ function toNumber(v, col, r) {
   return n;
 }
 
-function decodeText(buf) {
+export function decodeText(buf) {
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(buf);
   } catch {

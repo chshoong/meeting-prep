@@ -223,3 +223,5 @@ export function parseDeck(text) {
   errors.sort((a, b) => a.slide - b.slide);
   return { deck, slides, errors };
 }
+
+export { splitSlides as splitBlocks };
