@@ -60,9 +60,24 @@ export function browserFailure(what, { stderr, timedOut }, timeoutMs) {
   return new Error(`${what}${reason}${tail ? `. 브라우저 출력: ${tail}` : ''}`);
 }
 
+const sizeOf = file => { try { return fs.statSync(file).size; } catch { return 0; } };
+
+// 윈도우 Edge는 종료된 뒤에 결과 파일을 저장하기도 한다. 파일이 생기고 크기가 멈출 때까지 기다린다.
+export async function waitForFile(file, { timeoutMs = 5000, intervalMs = 100 } = {}) {
+  const until = Date.now() + timeoutMs;
+  let last = -1;
+  for (;;) {
+    const size = sizeOf(file);
+    if (size > 0 && size === last) return true;
+    last = size;
+    if (Date.now() >= until) return size > 0;
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+}
+
 export async function renderPdf(htmlPath, pdfPath, browser, { timeoutMs = 60000, spawnImpl = spawn } = {}) {
   fs.rmSync(pdfPath, { force: true });
   const r = await runBrowser(browser, ['--no-pdf-header-footer', `--print-to-pdf=${pdfPath}`, pathToFileURL(htmlPath).href], { timeoutMs, spawnImpl });
-  if (!r.timedOut && fs.existsSync(pdfPath) && fs.statSync(pdfPath).size > 0) return pdfPath;
+  if (!r.timedOut && await waitForFile(pdfPath)) return pdfPath;
   throw browserFailure('브라우저가 PDF를 만들지 못했습니다', r, timeoutMs);
 }

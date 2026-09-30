@@ -7,7 +7,7 @@ import { parseReport } from './report-parse.js';
 import { loadDatasets } from './report-data.js';
 import { renderReportHtml, sectionKey } from './report-html.js';
 import { renderComponent } from './report-components.js';
-import { findBrowser, runBrowser, browserFailure } from './pdf.js';
+import { findBrowser, runBrowser, browserFailure, waitForFile } from './pdf.js';
 import { parseTodos } from '../hub/lib.js';
 
 const DEFAULT_LIMIT = 20 * 1024 * 1024;
@@ -50,7 +50,7 @@ async function previews(htmlPath, dir, count, browser) {
   for (let i = 1; i <= count; i++) {
     const png = path.join(outDir, `tab-${String(i).padStart(2, '0')}.png`);
     const r = await runBrowser(browser, [`--screenshot=${png}`, '--window-size=1280,2400', '--hide-scrollbars', `${pathToFileURL(htmlPath).href}?tab=${i}`]);
-    if (r.timedOut || !fs.existsSync(png)) throw browserFailure(`미리보기 ${i}번 탭 이미지를 만들지 못했습니다`, r, 60000);
+    if (r.timedOut || !(await waitForFile(png))) throw browserFailure(`미리보기 ${i}번 탭 이미지를 만들지 못했습니다`, r, 60000);
     files.push(png);
   }
   return files;
