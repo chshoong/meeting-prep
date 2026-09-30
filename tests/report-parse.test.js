@@ -50,3 +50,23 @@ test('오류: 구조 위반과 필드 누락, 블록·줄 번호', () => {
 test('탭이 없으면 오류', () => {
   assert.match(parseReport('---\nreport: { title: T }\n---\n').errors[0].message, /탭이 하나도/);
 });
+
+const doc = comp => `---\nreport: { title: T }\n---\n---\ntab: a\n---\n---\nsection: s\n---\n---\n${comp}\n---\n`;
+
+test('from.agg와 table의 from.show는 정해진 값만', () => {
+  const bad = [
+    ['component: chart\nfrom: { dataset: runs, x: m, y: ap, agg: avg }', /from\.agg는 mean, median, min, max, sum, count, sd 중 하나/],
+    ['component: table\nfrom: { dataset: runs, x: m, y: ap, agg: avg }', /from\.agg는/],
+    ['component: table\nfrom: { dataset: runs, x: m, y: ap, show: sd }', /from\.show는 mean, median, min, max, sum, count, sd 중에서/],
+    ['component: table\nfrom: { dataset: runs, x: m, y: ap, show: [] }', /from\.show는/],
+    ['component: table\nfrom: { dataset: runs, x: m, y: ap, show: [mean, avg] }', /from\.show는/],
+  ];
+  for (const [comp, re] of bad) {
+    const { errors } = parseReport(doc(comp));
+    assert.ok(errors.some(e => re.test(e.message)), `${comp}: ${JSON.stringify(errors)}`);
+  }
+  for (const comp of ['component: chart\nfrom: { dataset: runs, x: m, y: ap, agg: median }', 'component: table\nfrom: { dataset: runs, x: m, y: ap, agg: count, show: [mean, sd, count] }']) {
+    assert.deepEqual(parseReport(doc(comp)).errors, [], comp);
+  }
+});
+

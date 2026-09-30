@@ -4,6 +4,16 @@ import { splitBlocks } from './parse.js';
 export const COMPONENTS = ['text', 'stats', 'cards', 'steps', 'chart', 'table', 'compare', 'filter', 'details', 'callout', 'figure', 'checklist', 'custom'];
 const WITH_BODY = new Set(['text', 'details', 'callout', 'custom']);
 const STATUSES = ['done', 'doing', 'todo'];
+const AGGS = ['mean', 'median', 'min', 'max', 'sum', 'count', 'sd'];
+
+function checkFrom(type, from) {
+  if (!(from.dataset && from.x && from.y)) return `${type}의 from에는 dataset, x, y가 필요해요`;
+  if (from.agg != null && !AGGS.includes(from.agg)) return `${type}의 from.agg는 ${AGGS.join(', ')} 중 하나여야 해요`;
+  if (type === 'table' && from.show != null && !(Array.isArray(from.show) && from.show.length && from.show.every(v => AGGS.includes(v)))) {
+    return `table의 from.show는 ${AGGS.join(', ')} 중에서 고른 목록이어야 해요 (예: [mean, sd])`;
+  }
+  return null;
+}
 
 function str(v) {
   if (v == null) return '';
@@ -34,10 +44,10 @@ function validate(c) {
       if (!isList(c.items, 2, 6)) return 'steps 부품에는 items가 2~6개 필요해요';
       return c.items.every(i => i && i.title) ? null : 'steps 항목에는 title이 필요해요';
     case 'chart':
-      if (c.from) return c.from.dataset && c.from.x && c.from.y ? null : 'chart의 from에는 dataset, x, y가 필요해요';
+      if (c.from) return checkFrom('chart', c.from);
       return null;
     case 'table':
-      if (c.from) return c.from.dataset && c.from.x && c.from.y ? null : 'table의 from에는 dataset, x, y가 필요해요';
+      if (c.from) return checkFrom('table', c.from);
       if (!Array.isArray(c.columns) || !Array.isArray(c.rows)) return 'table 부품에는 columns와 rows, 또는 from이 필요해요';
       return c.rows.every(r => Array.isArray(r) && r.length === c.columns.length) ? null : `표의 모든 행은 칸이 ${c.columns.length}개여야 해요`;
     case 'compare': case 'filter':
