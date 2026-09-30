@@ -1,0 +1,52 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { chartSvg, chartScale } from '../renderer/chart-svg.js';
+import { normalizeChart } from '../renderer/chart-data.js';
+
+const bar = normalizeChart({ type: 'bar', categories: ['CN7', 'RG3'], series: [
+  { name: '베이스라인', values: [0.37, 0.30] }, { name: '선정 <모델>', values: [0.43, 0.38] }] }, '.');
+
+test('막대 수 = 계열 × 항목, 값 표시, 이스케이프', () => {
+  const svg = chartSvg(bar, 700, 260);
+  assert.match(svg, /^<svg[^>]*viewBox="0 0 700 260"/);
+  assert.equal((svg.match(/class="bar"/g) ?? []).length, 4);
+  assert.match(svg, />0\.43</);
+  assert.match(svg, /fill="#C9D2FA"/);
+  assert.doesNotMatch(svg, /<모델>/);
+});
+
+test('가로 막대', () => {
+  const s = normalizeChart({ type: 'hbar', categories: ['a', 'b', 'c'], series: [{ name: 'x', values: [1, 2, 3] }] }, '.');
+  assert.equal((chartSvg(s, 600, 300).match(/class="bar"/g) ?? []).length, 3);
+});
+
+test('음수 막대는 0선 아래로', () => {
+  const s = normalizeChart({ type: 'bar', categories: ['a', 'b'], series: [{ name: '변화량', values: [-0.03, 0.08] }] }, '.');
+  const sc = chartScale(s);
+  assert.ok(sc.min < 0);
+  const svg = chartSvg(s, 400, 200);
+  assert.equal((svg.match(/class="bar"/g) ?? []).length, 2);
+  assert.match(svg, /class="zero"/);
+});
+
+test('선 차트: 점 수 = 계열 × 항목', () => {
+  const s = normalizeChart({ type: 'line', categories: ['1', '2', '3'], series: [{ name: 'a', values: [1, 2, 3] }, { name: 'b', values: [2, 1, 0] }] }, '.');
+  const svg = chartSvg(s, 500, 250);
+  assert.equal((svg.match(/class="pt"/g) ?? []).length, 6);
+  assert.match(svg, /<polyline/);
+});
+
+test('산점도: 강조 점은 accent 색과 이름표', () => {
+  const s = normalizeChart({ type: 'scatter', points: [{ x: 0.4, y: 0.35 }, { x: 0.46, y: 0.43, highlight: true }], highlight: { label: '선정 모델' } }, '.');
+  s.highlightLabel = '선정 모델';
+  const svg = chartSvg(s, 500, 250);
+  assert.equal((svg.match(/class="pt"/g) ?? []).length, 1);
+  assert.equal((svg.match(/class="pt hi"/g) ?? []).length, 1);
+  assert.match(svg, /fill="#5B45D6"/);
+  assert.match(svg, /선정 모델/);
+});
+
+test('yMin을 지정하면 축 시작이 그 값', () => {
+  const s = normalizeChart({ type: 'bar', yMin: 0.2, categories: ['a'], series: [{ name: 'x', values: [0.5] }] }, '.');
+  assert.equal(chartScale(s).min, 0.2);
+});
